@@ -4,3 +4,7 @@
 *.toc
 *.lof
 *.lot
+*.nav
+*.snm
+*.vrb
+__pycache__/
