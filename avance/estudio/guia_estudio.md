@@ -1,214 +1,246 @@
 # Guía de estudio — avance IPD438
 
-Ordenada de abajo hacia arriba: cada bloque usa el anterior. Para cada uno: qué tienes que poder explicar, lo esencial y preguntas para autoevaluarte (respóndelas en voz alta, sin mirar). La columna "Diapo" dice dónde lo usas.
+Sigue la numeración de tu apunte (I a VII). En cada punto:
 
-Marcas: **[medido]** sale de nuestro experimento; **[paper]** verificado en el PDF; **[por verificar]** de memoria o de búsqueda, no citar sin revisar.
+- **En la presentación** = lo que dices (alto nivel, sin abusar de conceptos).
+- **Si preguntan** = el detalle que tienes que dominar aunque no esté en las diapositivas.
+- **Autoevaluación** = respóndelas en voz alta, sin mirar.
 
-| Bloque | Tema | Diapo | Prioridad |
-|---|---|---|---|
-| 1 | Codificación predictiva, GoP, I/P/IDR | 2 | Alta |
-| 2 | `frame_num`, POC, DPB: por qué el IDR es el peor caso | 2, R2, 9 | Alta |
-| 3 | NAL, Annex B, SEI, RTP | 3 | Alta |
-| 4 | Mecanismos de recuperación (el mapa) | 4 | Alta |
-| 5 | FrameTrace | 5 | Alta |
-| 6 | AGiLE | 6, 7, 9 | Alta |
-| 7 | Métricas: PSNR, VMAF, FRR, BD-bitrate | 2, 5, 6, 8 | Media |
-| 8 | Transporte: por qué la pérdida llega al decodificador | 4, 7 | Media |
-| 9 | La propuesta, sus costos y la pregunta abierta | 7, 8, R3, R4 | Alta |
-| 10 | El experimento de la diapositiva 2 | 2, 9 | Media |
+Marcas: **[paper]** verificado en el PDF; **[medido]** de nuestro experimento; **[doc]** documentación oficial; **[por verificar]** no citar sin revisar.
+
+Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, si alcanza.
 
 ---
 
-## Bloque 1 — Codificación predictiva y propagación
+## I. Contenidos previos
 
-**Tienes que poder explicar:** por qué una pérdida no se queda en un frame, y por qué dura hasta el próximo intra.
+### i) Códec predictivo y propagación del error — diapositivas 3 y 5
 
-- Un frame **P** se codifica como predicción desde un frame anterior (vectores de movimiento y residuo). El decodificador reconstruye el P **sumando** el residuo a la referencia que tiene. Si la referencia está mal, el P queda mal aunque haya llegado entero, y sirve de referencia mala para el siguiente.
-- Un frame **I** se codifica sin mirar otros frames. Corta la cadena.
-- **GoP**: distancia entre intras. A 30 fps con GoP 30 hay un intra por segundo.
-- **IDR** (Instantaneous Decoding Refresh) es un I que además le dice al decodificador "olvida todo": vacía el buffer de referencias (DPB) y reinicia la numeración. Nada posterior puede referenciar algo anterior. Un **I no-IDR** decodifica solo, pero no garantiza eso: con varias referencias, un P posterior podría apuntar a frames de antes del I.
-- Con **una sola referencia** (lo que usamos), cada P mira solo al anterior; entonces cualquier I, IDR o no, corta la propagación.
-- **[medido]** 30 fps, GoP 30: perder un P a mitad de GoP daña 15 frames (0,5 s); perder el I, 30 frames (1 s); perder el IDR, 30 frames y además 13 congelados.
+**En la presentación**
+- Video = 30 imágenes por segundo. Se comprime porque frames vecinos se parecen.
+- **I** (intra): imagen completa. **P** (predicho): solo lo que cambió respecto del anterior. **IDR**: I que reinicia el decodificador. **GoP**: de un I al siguiente.
+- Si falta un P, los siguientes se aplican sobre una imagen equivocada: el error se arrastra hasta el próximo I.
+
+**Si preguntan**
+- Un P lleva vectores de movimiento y un residuo; el decodificador lo reconstruye **sumando** sobre su referencia. Referencia mala → P malo aunque haya llegado entero → siguiente P también.
+- Perder un P a mitad de GoP daña hasta el fin del GoP; perder el I daña el GoP entero. Con GoP 30 a 30 fps, 1 s. **[medido]** P perdido en el frame 45: 15 frames dañados; I perdido: 30.
+- El I es el frame más grande, así que es el más expuesto. **[medido]** en un clip a 1 Mbps, un IDR ocupó 47 paquetes y un P típico 2. Con 1 % de pérdida independiente, la probabilidad de dañarlo es 1 − 0,99ⁿ: 38 % para el IDR, 2 % para un P.
+- Referencia: Wang & Zhu, 1998 (control y ocultamiento de errores).
 
 **Autoevaluación**
-1. Si pierdo el P número 5 de una GoP de 30, ¿cuántos frames quedan dañados y por qué?
-2. ¿Por qué perder el primer P después del intra es casi tan malo como perder el intra, pero menos severo? (pista: el P perdido se oculta con el intra, que es casi igual.)
-3. ¿Qué diferencia hay entre un I y un IDR? ¿Cuándo da lo mismo cuál pierdo?
-4. ¿Por qué, con varias referencias, un I no-IDR no garantiza recuperación?
+1. Explica la propagación del error con la analogía de "instrucciones de cambio".
+2. Si pierdo el P número 5 de un GoP de 30, ¿cuántos frames se dañan?
+3. ¿Por qué el I es a la vez el frame más caro de perder y el más probable de perder?
 
-## Bloque 2 — `frame_num`, POC y DPB: por qué el IDR es el peor caso
+### ii) VCL / NAL en H.264 — diapositiva 4
 
-**Tienes que poder explicar:** la fila 3 de la diapositiva 2 (13 congelados) y por qué el I-header en H.264 debe ser I no-IDR.
+**En la presentación**
+- Jerarquía: **segmento** (lo que el servidor guarda y reparte) → **GoP** → **frame** → **slice** (trozo de frame que se decodifica solo) → **NAL** (la caja que H.264 entrega a la red).
+- El primer byte de la NAL dice qué lleva: 1 slice, 5 slice IDR, 6 SEI, 7/8 parámetros.
 
-- **`frame_num`**: contador en la cabecera de cada slice; sube en 1 por cada frame de referencia y vuelve a 0 en cada IDR. Es módulo `MaxFrameNum` (en nuestro flujo, 16). Sirve para detectar huecos: si llega 7 después de 5, falta el 6.
-- **POC** (Picture Order Count): orden de **presentación**. Con B-frames difiere del orden de decodificación. Hay tres modos; sin B-frames x264 usa el **tipo 2**, en que el POC se deriva de `frame_num` (≈ 2 × número de frame desde el último IDR).
-- **DPB** (Decoded Picture Buffer): las referencias guardadas. `max_num_ref_frames` (en nuestro flujo, 1) dice cuántas.
-- **[medido]** Qué pasa al perder el IDR, con FFmpeg 6.1 (visto en el log de depuración):
-  1. El frame 29 tenía `frame_num` 13 y POC 58. El IDR perdido reiniciaba todo a 0.
-  2. Llega el P siguiente con `frame_num` 1. FFmpeg ve un hueco (13 → 1). Como `max_num_ref_frames` = 1, rellena solo un frame y no se da cuenta de que hubo un reinicio.
-  3. Calcula para ese P un POC de 34, **menor** que el 58 ya mostrado. Lo descarta por desordenado ("no picture ooo" en el log). Lo mismo con los 12 frames siguientes, hasta que el POC vuelve a alcanzar 58.
-  4. Resultado: 13 frames sin entregar (el perdido + 12) y después artefactos hasta el próximo IDR.
-- Al perder un **I no-IDR**, `frame_num` sigue su curso: el hueco es de 1 frame, el decodificador oculta y sigue. Artefactos, sin congelamiento.
-- **Consecuencia para el diseño:** si el I-header fuera IDR, al entrar por él el decodificador vaciaría el DPB y reiniciaría la numeración, y los P siguientes (codificados contra el P original, con su `frame_num`) no calzarían. El I-header debe ser **I no-IDR con el `frame_num` y POC del P que reemplaza**. Algunos decodificadores no aceptan arrancar desde un I no-IDR sin un **Recovery Point SEI** (payloadType 6) que lo autorice. **[por verificar]** con el decodificador del receptor real.
-- Ojo: el congelamiento es comportamiento de FFmpeg, no del estándar. Otro decodificador puede mostrar basura en vez de congelar. Dilo así si preguntan.
+**Si preguntan**
+- **VCL** (*Video Coding Layer*): lo que codifica la imagen (los slices). **NAL** (*Network Abstraction Layer*): cómo se empaqueta para la red.
+- Cabecera NAL (1 byte): `forbidden_zero_bit` (1 bit, siempre 0), `nal_ref_idc` (2 bits: importancia como referencia), `nal_unit_type` (5 bits).
+- Tipos: **1** slice no-IDR · **5** slice IDR · **6** SEI · **7** SPS · **8** PPS · **9** delimitador de access unit.
+- **SPS/PPS** (*Sequence / Picture Parameter Set*): resolución, perfil, cómo se numeran los frames. Sin ellos no se decodifica nada. Normalmente se repiten antes de cada IDR.
+- **Annex B**: formato en que las NAL van una tras otra separadas por *start codes* (`00 00 01` o `00 00 00 01`). Para que un start code no aparezca por accidente dentro de los datos se insertan **bytes de prevención de emulación** (`00 00 03`).
+- **Access unit** (tu "¿access unit?"): todas las NAL de **un** frame: sus slices más las NAL que lo acompañan (SPS, PPS, SEI). Si hay un slice por frame, access unit ≈ frame.
+- **Segmento**: unidad de HLS/DASH/MoQ, de algunos segundos, alineada para empezar en un IDR. Con SRT no hay segmentos: el flujo es continuo.
+- Referencia: Wiegand et al., 2003.
+
+**Autoevaluación**
+1. Dibuja la jerarquía segmento → NAL sin mirar.
+2. Di el tipo de NAL de un IDR, un P y una SEI.
+3. ¿Qué es un access unit y en qué se diferencia de una NAL?
+
+### iii) Slice header y gestión de referencias (!!!) — diapositivas 5 y 12
+
+**En la presentación**
+- Perder un IDR es el peor caso: además se pierde la orden de "empezar de cero" y la imagen puede congelarse.
+- En H.264, el I-header debe ser un I **no-IDR** y cada P debe usar una sola referencia.
+
+**Si preguntan**
+- **`frame_num`**: contador en la cabecera de cada slice. Sube 1 por frame de referencia y vuelve a 0 en cada IDR. Sirve para detectar huecos.
+- **POC** (*Picture Order Count*): orden de presentación. Sin B-frames, x264 usa el tipo 2, que se deriva de `frame_num`.
+- **DPB** (*Decoded Picture Buffer*): las referencias guardadas. El IDR lo vacía.
+- **Por qué el I-header no puede ser IDR:** un IDR vacía el DPB y reinicia `frame_num`; los P siguientes fueron codificados contra el P original, con su numeración, y no calzarían. Tiene que ser un slice I no-IDR que ocupe el lugar (y el `frame_num`) del P que reemplaza.
+- **Por qué multi-referencia rompe la recuperación:** si un P posterior puede apuntar a un frame anterior al I-header, apunta a algo dañado. AGiLE usa una sola referencia: cada P mira solo al anterior.
+- **[medido] Por qué el IDR congela en FFmpeg:** sin el IDR, el decodificador ve `frame_num` 13 → 1, rellena el hueco y no detecta el reinicio; calcula POC menores que los ya mostrados y descarta esos frames por desordenados ("no picture ooo" en el log): 12 frames congelados, después artefactos hasta el próximo IDR. Es comportamiento de FFmpeg 6.1; otro decodificador puede mostrar basura en vez de congelar.
 
 **Autoevaluación**
 1. ¿Qué hace un IDR que no hace un I?
-2. ¿Por qué FFmpeg descarta 12 frames y no 29?
-3. ¿Por qué el I-header no puede ser IDR?
-4. ¿Para qué sirve el Recovery Point SEI?
+2. ¿Por qué el I-header no puede ser IDR?
+3. ¿Por qué con varias referencias no sirve?
 
-## Bloque 3 — NAL, Annex B, SEI y RTP
+### iv) SEI (Anexo D de H.264) (!!!) — diapositivas 4 y 6
 
-**Tienes que poder explicar:** qué viaja por la red y por qué el IDR es el frame más expuesto.
+**En la presentación**
+- SEI = datos extra que el decodificador puede ignorar. AGiLE esconde el I-header ahí.
 
-- H.264 separa la **VCL** (lo que codifica la imagen: slices) de la **NAL** (cómo se empaqueta). Cada NAL unit tiene 1 byte de cabecera: `forbidden_zero_bit` (1 bit), `nal_ref_idc` (2 bits, importancia como referencia), `nal_unit_type` (5 bits).
-- Tipos que importan: **1** slice no-IDR (P o I no-IDR), **5** slice IDR, **6** SEI, **7** SPS, **8** PPS, **9** AUD.
-- **SPS/PPS**: parámetros de secuencia y de imagen (resolución, perfil, `log2_max_frame_num`, tipo de POC...). Sin ellos no se decodifica nada. x264 los repite antes de cada IDR.
-- **Access unit**: todas las NAL de un frame. En nuestro flujo, 1 slice por frame (las NAL de parámetros van pegadas al IDR).
-- **Annex B**: formato byte stream; las NAL van separadas por start codes `00 00 01` o `00 00 00 01`. Para que un start code no aparezca dentro de los datos se insertan bytes de **prevención de emulación** (`00 00 03`).
-- **SEI** (Anexo D): información suplementaria dentro del stream. El decodificador puede ignorarla sin afectar la decodificación. Tipos relevantes: 5 `user_data_unregistered` (candidato para transportar el I-header; **decisión nuestra, AGiLE solo dice "SEI"**), 6 `recovery_point`.
-- **RTP, RFC 6184**: tres formas de meter NAL en paquetes. NAL simple (una por paquete); **STAP-A** (tipo 24, varias NAL chicas en un paquete, típico para SPS+PPS); **FU-A** (tipo 28, una NAL grande en fragmentos). Si se pierde un fragmento, la RFC dice que el receptor debería descartar los fragmentos siguientes de esa NAL; la NAL queda rota desde ahí.
-- **[medido]** IDR de 55 kB = 47 paquetes de 1200 B; P típico 2 kB = 2 paquetes. Con pérdida independiente p, la probabilidad de dañar un frame de n paquetes es 1 − (1 − p)^n. Con p = 1 %: 38 % para el IDR, 2 % para un P. Un tercio de los paquetes del clip son de IDR.
-- Supuesto a declarar si preguntan: pérdida **independiente**. Con ráfagas (modelo Gilbert-Elliott) los números cambian.
+**Si preguntan**
+- **payloadType 5**, `user_data_unregistered`: datos arbitrarios identificados por un UUID. Es donde **nosotros** pondríamos el I-header. AGiLE solo dice "SEI"; el tipo es decisión nuestra.
+- **payloadType 6**, `recovery_point`: le dice al decodificador que desde ese frame puede arrancar y obtener imagen correcta, **aunque no sea IDR**. Es el que "engaña" al decodificador (tu apunte). Algunos decodificadores no arrancan desde un I no-IDR sin él.
 
-**Autoevaluación**
-1. Dibuja la cabecera NAL y di qué tipo tiene un IDR, un P y un SEI.
-2. ¿Por qué perder un fragmento FU-A arruina la NAL entera?
-3. Calcula la probabilidad de dañar un frame de 10 paquetes con 2 % de pérdida.
-4. ¿Qué significa que el decodificador "puede ignorar" un SEI y por qué eso le sirve a AGiLE?
+**Autoevaluación:** ¿qué tipo de SEI lleva el I-header y cuál permite arrancar desde él?
 
-## Bloque 4 — Mecanismos de recuperación (el mapa)
+### v) Encapsulación y transporte — diapositiva 9
 
-**Tienes que poder explicar**, para cada uno: quién actúa, qué cuesta con la red sana y qué cuesta cuando hay pérdida.
+**En la presentación**
+- Uso **SRT**: retransmite dentro de una latencia fija y descarta lo que no llega a tiempo. Lleva MPEG-TS. El emisor sabe qué descartó.
 
-| Mecanismo | Qué hace | ¿Lazo al codificador? | Costo con red sana | Costo con pérdida |
-|---|---|---|---|---|
-| NACK + retransmisión (RFC 4585, RTX RFC 4588) | El receptor pide el paquete de nuevo | No (al emisor o relay) | Nada | Un RTT; inútil si vence el plazo |
-| FEC (ULPFEC RFC 5109, FlexFEC RFC 8627) | Paquetes redundantes | No | Siempre (overhead) | Falla con ráfagas |
-| PLI / FIR (RFC 4585 / RFC 5104) | El receptor pide un intra | Sí | Nada | RTT + un IDR para **todos** en 1-a-muchos |
-| LTR + RPSI | El codificador predice desde una referencia que el receptor confirmó | Sí | Estado por receptor | RTT |
-| GoP corto | Intras frecuentes | No | Siempre | — |
-| Intra refresh + Recovery Point SEI | Refresca una franja intra por frame (GDR) | No | Siempre | — |
-| Redundant pictures (H.264, Baseline/Extended) | Segunda codificación de la misma imagen, siempre enviada | No | Siempre | — |
-| GoP adaptativo (FrameTrace) | El cliente reporta, el codificador acorta el GoP | Sí | Bajo | Más intras para todos |
-| **Propuesta** | El edge entrega el I-header a quien perdió | **No** | **Nada en la última milla** | Un intra solo al dañado |
+**Si preguntan — SRT** **[doc]** (documentación oficial de libsrt, Haivision)
+- *Secure Reliable Transport*: protocolo abierto sobre UDP para video en vivo de baja latencia. Especificación: borrador IETF draft-sharabayko-srt-01 (2021).
+- **ARQ** (*Automatic Repeat reQuest*) es su mecanismo principal: cuando el receptor detecta un paquete faltante, envía un aviso de pérdida (**NAK**) y el emisor lo retransmite. FEC es opcional.
+- **Latencia fija** (`SRTO_LATENCY`, por defecto **120 ms**): el receptor entrega cada paquete en su momento; dentro de ese margen caben las retransmisiones.
+- **Too-late packet drop** (`SRTO_TLPKTDROP`): el receptor salta los paquetes que no llegaron a tiempo; el emisor descarta los que ya no tienen posibilidad de llegar. **La pérdida residual llega al decodificador.**
+- El emisor lleva la cuenta: `pktSndLossTotal` (pérdidas reportadas por el receptor) y `pktSndDropTotal` (paquetes que descartó por tarde). **Por eso el edge, como emisor SRT, sabe qué espectador quedó dañado sin preguntarle al codificador.**
+- Cifrado AES de 128, 192 o 256 bits.
+- Es agnóstico al contenido, pero lo típico es **MPEG-TS**: 7 paquetes TS de 188 B = 1316 B por paquete SRT.
 
-- NACK y FEC trabajan a nivel de **paquete**: intentan que la pérdida no llegue. Lo demás trabaja a nivel de **decodificador**: lo resincroniza cuando la pérdida ya llegó.
-- Cuidado: NACK también es "sin lazo al codificador y sin costo con red sana". La diferencia es que NACK tiene que recuperar **ese** paquete dentro del plazo; la propuesta no recupera el paquete, resincroniza en la siguiente frontera, llegue cuando llegue. Prepárate para esta pregunta.
-- **Redundant pictures** es lo más parecido conceptualmente (una segunda representación de la imagen), pero se envía siempre a todos. **[por verificar]** antes de afirmar novedad frente a esto y a los slices SP/SI.
+**Si preguntan — MPEG-TS** (tu apunte)
+- Video elemental (ES) → PES (agrega PTS/DTS, los tiempos de presentación y decodificación) → paquetes TS de **188 B**.
+- Cada paquete TS lleva un `continuity_counter` de 4 bits por flujo: si salta, se perdió algo. Detección de pérdida en el receptor.
+
+**Si preguntan — RTP (RFC 6184)**, la alternativa
+- NAL simple (una por paquete), **STAP-A** (varias NAL chicas en un paquete) y **FU-A** (una NAL grande en fragmentos). Más liviano de parsear para el edge.
+- Perder un fragmento FU-A rompe la NAL desde ese punto.
 
 **Autoevaluación**
-1. ¿Por qué PLI es caro en un CDN con miles de espectadores?
-2. ¿En qué se diferencia la propuesta del intra refresh con Recovery Point SEI?
-3. ¿Por qué no basta con NACK?
-4. Ubica cada mecanismo en el mapa sin mirar la diapositiva.
+1. ¿Qué hace SRT con un paquete perdido y qué hace si no alcanza a recuperarlo?
+2. ¿Por qué SRT le resuelve al edge la pregunta "¿a quién le entrego el I-header?"?
+3. ¿Cómo se detecta una pérdida en MPEG-TS?
 
-## Bloque 5 — FrameTrace [1]
+### vi) Ocultamiento de errores — diapositiva 5
 
-B. Denizer, L. Winkel, O. Landsiedel. EMS '25 (workshop de ACM SIGCOMM 2025), pp. 31–36. 6 páginas, open access. **[paper]**
+- El decodificador puede congelar, copiar el frame anterior o compensar movimiento. **Disimula** el daño (baja la severidad); **no lo elimina** (no acorta la duración). Nosotros buscamos eliminarlo.
+- Por eso medimos también congelamiento: ocultar ≠ recuperar.
 
-- **Problema:** las herramientas miden por conexión o por segmento y esconden dónde ocurren los stalls. Nadie había estudiado el trade-off latencia/calidad **por frame** en MoQ.
-- **Diseño:** 4 marcas de tiempo por frame (captura, escritura al segmento, llegada al cliente, render). Sincronización con PTP. Emulación de red con tc-netem.
-- **Métricas propias:** **FDR** (frames recibidos / enviados: mide la red) y **FRR** (frames renderizados / enviados: mide la experiencia).
-- **Resultados que usas:**
-  - GoP vs calidad (Big Buck Bunny 720p, 24 fps, 1 % de pérdida, 500 ms): **VMAF 72,6 con GoP 0,5 s vs 55,7 con GoP 2 s**.
-  - Controlador adaptativo (umbrales de FDR, en el cliente): GoP medio **2,02 / 1,56 / 0,88 s** con 0 / 10 / 20 % de pérdida.
-  - Bonus: con 10 % de pérdida, LL-DASH colapsa (FRR 14,94 %, ~28 s detrás del vivo); MoQ no.
-- **Limitación para ti:** el controlador necesita realimentación cliente → codificador; el refresco lo pagan todos. No caracteriza el cruce entre GoP largo y corto.
-- **Dato de defensa:** cita a AGiLE como técnica de *video on demand*; AGiLE es de **live**.
-- **No** habla de H.264, H.265 ni NAL: es agnóstico al códec. No lo presentes como literatura NAL.
+### vii) STM32 — no va en la presentación
 
-**Autoevaluación**
-1. ¿Qué diferencia hay entre FDR y FRR? ¿Cuál usas y por qué?
-2. ¿Qué demuestra la comparación GoP 0,5 s vs 2 s y qué no demuestra?
-3. ¿Dónde está el lazo en FrameTrace?
-
-## Bloque 6 — AGiLE [2]
-
-C. Chen, W. Yin, Z. Huang, S. Shi (ByteDance, SJTU). MMSys '24, pp. 34–44. Paper completo. **[paper]**
-
-- **Problema:** el edge cachea el último GoP; un espectador nuevo debe empezar en un I. GoP corto → buen tiempo de entrada, mala eficiencia. Pasar de GoP 2 s a 10 s beneficia a 11 de 20 clips de Douyin (los de poco movimiento).
-- **Pseudo-GOP:** separa unidad de **codificación** (GoP largo, G_L = 10 s) de unidad de **transmisión** (pseudo-GOP, 2 s). Cuatro I-headers por GoP.
-- **I-header:** la misma imagen fuente del P de la frontera, codificada **además** como I. No cambia las referencias: el P siguiente sigue apuntando al P, no al I-header. Viaja **íntegro dentro del SEI** de ese P (no especifica qué payloadType).
-- **Edge:** parsea el SEI, guarda el I-header. Nuevo → I-header + P siguientes. Conectado → se descarta.
-- **Implementación:** doble codificador (primario normal, secundario solo para I-headers). TMVP desactivado (costo ~0,23 % de BD-bitrate). Mismos parámetros de tasa para el I-header que para el resto.
-- **Deriva:** el I-header no reconstruye exactamente igual que el P (cuantizaciones distintas), así que quien entra por él arrastra un error leve hasta el próximo I real.
-- **Resultados:** BD-bitrate −3,54 % (fijo) / −3,71 % (adaptativo) vs GoP fijo de 2 s. I-header = 6,6 % del baseline; datos totales **+2,8 %**. **Fig. 12:** la caída de VMAF disminuye mientras más tarde se entra; entrando por el 1.º, **~1,1** sin B (97,83 → 96,73); peor caso del dataset **2,64**. Imperceptible para los evaluadores.
-- **Evaluación offline:** x265, 720p 30 fps; `hevc_mp4toannexb` para separar frames, reemplazar P por I-header, concatenar, VMAF. Esto es lo que reproduces (diapositiva 9).
-
-**Autoevaluación**
-1. ¿Qué es un pseudo-GOP y qué es un I-header? (concepto vs herramienta)
-2. ¿Por qué hay deriva si la imagen fuente es idéntica?
-3. ¿Por qué el +2,8 % "no aumenta el ancho de banda hacia los espectadores" en AGiLE? ¿Y en tu propuesta?
-4. ¿Por qué hacen falta dos contextos de codificador?
-
-## Bloque 7 — Métricas
-
-- **PSNR** = 10·log10(255² / MSE), en dB, por frame. Simple y objetiva; la usamos en la diapositiva 2 porque el FFmpeg instalado no trae libvmaf.
-- **VMAF** (Netflix): combina varias medidas (VIF, detalle, movimiento) con un modelo entrenado contra opiniones humanas; 0–100. Es la de los papers y la que usarás en la final.
-- **FRR**: ver bloque 5. Evita la trampa: congelar la imagen elimina artefactos y destruye la experiencia.
-- **Duración del artefacto**: frames desde la pérdida hasta la reconstrucción limpia (idéntica a la decodificación sin pérdida). Es tu métrica principal.
-- **BD-bitrate** (Bjøntegaard, VCEG-M33, 2001): se codifica a varios bitrates, se trazan curvas tasa-calidad y se mide la diferencia promedio de bitrate a igual calidad. Negativo = ahorro.
-
-**Autoevaluación:** ¿por qué hacen falta las tres métricas juntas (duración, severidad, congelamiento)? ¿Qué significa −3,5 % de BD-bitrate?
-
-## Bloque 8 — Transporte: por qué la pérdida llega al decodificador
-
-- Sobre **TCP** (HLS, DASH, HTTP-FLV) no hay pérdida para el decodificador: se retransmite y la pérdida se convierte en **stall** (rebuffering), no en artefacto.
-- La propuesta aplica donde se descarta lo que llega tarde: **RTP/UDP** (WebRTC), **SRT** (retransmite dentro de una ventana de latencia y descarta lo que no llegó a tiempo, "too-late packet drop"), **MoQ** (puede abandonar objetos o grupos atrasados). **[por verificar]** el mecanismo exacto en el draft vigente de MoQ antes de afirmarlo en el informe.
-- **Última milla**: edge → espectador. Es donde ocurre la pérdida que te interesa y donde el costo se multiplica por espectador. En la plataforma, la pérdida va **después** del edge.
-
-**Autoevaluación:** si alguien dice "en streaming moderno no hay pérdida porque todo va sobre QUIC/TCP", ¿qué respondes?
-
-## Bloque 9 — La propuesta, sus costos y la pregunta abierta
-
-- **Cambio mínimo:** la regla del edge pasa de "¿es nuevo?" a "¿es nuevo **o está dañado**?".
-- **Qué es gratis:** producir el I-header, llevarlo por el CDN, cachearlo (ya lo hace AGiLE). **Qué se paga:** cada entrega a un dañado en su última milla.
-- Frase: *"No elimino el intra. Elimino el intra que se envía a quien no lo necesita."*
-- **Costos** (respaldo R4): deriva (~1,1 VMAF); ráfaga en el peor momento (un intra pesa ~20 P en nuestro clip); doble codificación en el STM32; +2,8 % de ingest; estado en el edge; recuperación solo en fronteras de pseudo-GOP; peor en alto movimiento; decodificadores que no arrancan desde I no-IDR.
-- **Pregunta abierta: ¿cómo sabe el edge quién perdió?** (a) el receptor avisa: lazo corto al edge, compite con NACK/PLI; (b) el edge infiere por retransmisiones, ACK o congestión: versión fuerte; (c) mandarlo siempre: equivale a GoP corto, no sirve.
-- **Riesgo principal:** que el encoder del STM32 no permita doble codificación ni forzar un I no-IDR. Confirmar modelo y encoder es lo primero.
-
-**Autoevaluación:** defiende en 30 segundos por qué tu propuesta no es "lo mismo que PLI" y por qué no es "lo mismo que GoP corto".
-
-## Bloque 10 — El experimento de la diapositiva 2
-
-Código en `avance/experimentos/perdida_gop.py`; figura en `avance/presentacion/figuras.py`.
-
-1. Extrae 90 frames de Big Buck Bunny (640×360) desde el segundo 48,5 (sin cortes de escena) y los trata como 30 fps.
-2. Codifica dos veces con x264 a 1 Mbps (VBV 1 s), perfil Baseline, 1 referencia, sin B, 1 slice por frame:
-   - A: intra cada 30 frames, todos IDR.
-   - B: intra cada 30 frames, pero solo el primero es IDR; los demás se fuerzan como **I no-IDR** con un `qpfile` (tipo `i`).
-3. Separa el Annex B en NAL, las agrupa en access units y elimina el frame elegido (con sus NAL pegadas).
-4. Decodifica con el H.264 de FFmpeg (vía PyAV), frame a frame con su número; si el decodificador no entrega un frame, el "reproductor" repite el anterior (congelado).
-5. Mide por frame: PSNR-Y contra la fuente, si el frame es idéntico al de la decodificación sin pérdida (duración) y si fue entregado (congelamiento).
-
-Para regenerar:
-
-```bash
-pip install av numpy matplotlib     # además: ffmpeg, x264 y LaTeX (para la figura)
-python3 avance/experimentos/perdida_gop.py big_buck_bunny.mp4 avance/presentacion/datos/perdida_gop.csv
-python3 avance/presentacion/figuras.py
-```
-
-Limitaciones que debes conocer: el clip es de 24 fps reinterpretado a 30 fps; PSNR en vez de VMAF; un solo decodificador (FFmpeg 6.1); pérdida de frame completo, no de paquete.
-
-**Autoevaluación:** ¿por qué la codificación B sirve como base para generar I-headers en la reproducción?
+- Los codificadores por hardware embebidos suelen ser **Constrained Baseline**: sin B-frames.
+- **TMVP** (*Temporal Motion Vector Prediction*) es de H.265; AGiLE lo desactiva. En H.264 sin B-frames probablemente no aplica. **[por verificar]** con el codificador concreto.
+- Riesgo principal: que el codificador no permita codificar dos veces la misma imagen (P e I-header) ni forzar un I no-IDR. Confirmar el modelo es lo primero.
 
 ---
 
-## Preguntas probables y respuesta corta
+## II. Estado del arte — diapositivas 6, 7 y 8
 
-- **¿En qué se diferencia del Recovery Point SEI / intra refresh?** Ese también es sin lazo, pero refresca siempre y paga eficiencia siempre. Yo reutilizo bits que ya existen para otro fin y solo los entrego a quien perdió.
-- **¿Por qué no NACK?** NACK debe recuperar ese paquete dentro del plazo de latencia; si vence o hay ráfaga, la pérdida llega igual. Lo mío actúa después: resincroniza en la siguiente frontera.
-- **¿Por qué STM32 y no un servidor?** El lazo cerrado supone un codificador que puede recodificar a pedido y llevar estado por receptor. Un embebido no puede; ahí se ve el valor.
-- **¿Por qué H.264 si AGiLE usa H.265?** El mecanismo (SEI + I no-IDR) existe en ambos; H.264 es lo que trae el hardware embebido. La restricción de TMVP de AGiLE probablemente no aplica en H.264 IPPP (**[por verificar]** con el encoder concreto).
-- **¿Por qué nadie lo hizo?** FrameTrace cita a AGiLE como VOD: las líneas se citan sin conectarse. No digas "no se han cruzado".
-- **¿La ráfaga del intra no empeora la congestión?** Es un costo real (R4). Es el mismo tamaño que el IDR que provocaría un PLI, pero va a un solo receptor y no a todos. Hay que medirlo.
-- **¿El congelamiento de la diapositiva 2 depende del decodificador?** Sí, es FFmpeg 6.1. Otros pueden mostrar artefactos en vez de congelar. La duración (hasta el próximo intra) no depende.
-- **¿Por qué PSNR y no VMAF en la diapositiva 2?** Para mostrar duración basta PSNR; el FFmpeg disponible no trae libvmaf. En la final, VMAF.
+### AGiLE [2] — el fuerte **[paper]**
+
+C. Chen, W. Yin, Z. Huang, S. Shi (ByteDance y SJTU). MMSys '24, pp. 34–44. Paper completo.
+
+**En la presentación**
+- Resuelve: GoP largo ahorra bits, pero quien se conecta espera el próximo I.
+- Idea: GoP de codificación de 10 s, **pseudo-GOP** de transmisión de 2 s.
+- **I-header**: la misma imagen de la frontera, codificada además como I, dentro de una SEI del P.
+- El **edge** (servidor de la CDN más cercano al espectador) guarda el I-header y se lo da solo al espectador nuevo; al conectado se lo descarta.
+- ~3,5 % menos bits a igual calidad; +2,8 % de datos hacia el CDN; deriva de ~1 punto de VMAF.
+
+**Si preguntan**
+- Motivación medida: top 20 streams de Douyin; pasar de GoP 2 s a 10 s beneficia a 11 de 20 (los de poco movimiento).
+- El I-header **no cambia las referencias**: el P siguiente sigue apuntando al P, no al I-header.
+- Doble codificador (uno primario, otro solo para I-headers); TMVP desactivado (~0,23 % de costo).
+- **Deriva**: el I-header no reconstruye idéntico al P (cuantizaciones distintas); quien entra por él arrastra un error leve hasta el próximo I real.
+- BD-bitrate: −3,54 % (fijo) / −3,71 % (adaptativo) frente a GoP fijo de 2 s. Datos totales +2,8 %.
+- **Fig. 12**: la caída de VMAF baja mientras más tarde se entra en el GoP; por el 1.º I-header, ~1,1 (97,83 → 96,73); peor caso 2,64.
+- Evaluación offline: x265, 720p 30 fps; separar frames con `hevc_mp4toannexb`, reemplazar P por I-header, concatenar, VMAF.
+
+**Autoevaluación**
+1. Explica pseudo-GOP e I-header en 30 segundos, para alguien que no sabe de video.
+2. ¿Qué hace el edge con el I-header y a quién se lo descarta?
+3. ¿Por qué hay deriva si la imagen es la misma?
+
+### FrameTrace [1] **[paper]**
+
+B. Denizer, L. Winkel, O. Landsiedel. EMS '25, ACM SIGCOMM **2025**, pp. 31–36 (en tu apunte dice 2026).
+
+**En la presentación**
+- Con 1 % de pérdida: GoP 0,5 s → VMAF 72,6; GoP 2 s → 55,7. Refrescar seguido salva calidad.
+- Su controlador acorta el GoP con pérdida, pero necesita lazo al codificador.
+
+**Si preguntan**
+- Mide 4 marcas de tiempo por frame (captura, segmento, llegada, render) en Media over QUIC (MoQ).
+- **FDR** = frames recibidos / enviados (mide la red). **FRR** = frames mostrados / enviados (mide la experiencia).
+- Controlador: GoP medio 2,02 / 1,56 / 0,88 s con 0 / 10 / 20 % de pérdida.
+- No habla de H.264 ni de NAL: es agnóstico al códec.
+- Cita a AGiLE como técnica de video bajo demanda; AGiLE es de **video en vivo**. Las dos líneas se citan sin conectarse.
+
+### Otros mecanismos (la tabla)
+
+| Mecanismo | Qué hace | ¿Lazo al codificador? | ¿Costo con red sana? |
+|---|---|---|---|
+| **PLI** (*Picture Loss Indication*) | El receptor pide un intra | Sí | No; con pérdida, un IDR para todos |
+| **RPSI** + **LTR** (*Reference Picture Selection Indication*, *Long-Term Reference*) | El codificador predice desde una referencia que el receptor confirmó | Sí | Estado por receptor |
+| GoP corto / refresco intra periódico | Intras frecuentes, o una franja intra por frame | No | Siempre |
+| **Recovery Point SEI** | Marca desde dónde se puede arrancar | No | Siempre (acompaña al refresco) |
+| Redundant Coded Pictures (H.264) | Segunda copia codificada de la imagen, siempre enviada | No | Siempre |
+| GoP adaptativo (FrameTrace) | Acorta el GoP al ver pérdida | Sí | Sí |
+| **Propuesta** | El edge entrega el I-header a quien perdió | **No** | **No** en la última milla |
+
+- PLI, FIR y RPSI están en RFC 8834 (RTP en WebRTC). LTR es una herramienta del códec.
+- Tu apunte: Redundant Coded Pictures "**podría estar hecho**". Es lo más parecido (una segunda representación), pero se manda siempre a todos. **[por verificar]** antes de afirmar novedad.
+
+---
+
+## III. Motivación y problema — diapositiva 10
+
+**En la presentación**
+1. Sin propagación del error no habría problema.
+2. Hoy: pedir un intra (lazo) o mandar intras siempre (costo con red sana).
+3. **Quiebre**: AGiLE alarga el GoP a 10 s → una pérdida dura hasta 10 s.
+4. **Anomalía**: cada 2 s el edge tiene un I-header que lo arreglaría… y lo descarta.
+5. **Idea fuerte**: "El mecanismo para recuperarse de la pérdida ya está en la red, ya está pagado, y hoy se descarta."
+
+**Si preguntan**
+- "Pagado" = pagado hasta el edge (ingest y CDN). En la última milla se paga solo cuando se entrega, y solo a quien lo necesita.
+- Frase útil: *"No elimino el intra. Elimino el intra que se envía a quien no lo necesita."*
+
+## IV. Objetivo — diapositiva 11
+
+- Demostrar que entregar el I-header a quien perdió paquetes corta el daño en la próxima frontera (≤ 2 s) y no en el próximo I (≤ 10 s), sin lazo al codificador.
+- Meta (tu apunte): reducir la duración de los artefactos al mismo ancho de banda en el último salto que un GoP largo, cerca de un GoP corto sin su costo permanente.
+- Métricas:
+  - **Duración**: frames desde la pérdida hasta la imagen limpia.
+  - **Severidad**: VMAF (o PSNR) por frame contra la referencia. **VMAF**: calidad percibida, 0–100 (Netflix). **PSNR**: relación señal a ruido, en dB.
+  - **Congelamiento**: FRR o duración de stalls. Ocultar ≠ íntegro.
+- **Promesa**: "Recuperarse de la pérdida sin pedirle nada al codificador, usando un punto de recuperación que ya está en la red."
+
+## V. Resultados a producir — diapositiva 12
+
+- Fig. 12 de AGiLE en H.264: caída de VMAF según el índice del I-header por el que se entra.
+- Pasos (tu apunte): codificar → separar Annex B (FFmpeg) → reemplazar P por I-H → concatenar → medir VMAF.
+- Ya probado: x264 puede forzar un I no-IDR en una posición dada (con un `qpfile`, tipo `i`); separar el Annex B y quitar frames funciona (`avance/experimentos/perdida_gop.py`).
+- Benchmark en la plataforma: GoP largo, GoP corto, PLI y propuesta con la misma pérdida.
+
+## VI. Referencias — diapositiva 14
+
+FrameTrace, AGiLE, Wiegand 2003, Wang & Zhu 1998, Sjöberg 2012, ITU-T H.264 (Anexos B y D), RFC 6184, RFC 8834 y, nuevo, el borrador de **SRT** (Sharabayko et al., 2021).
+
+## VII. Costos — diapositiva 13
+
+- **Exactitud**: deriva hasta el próximo I; se reduce la duración del artefacto pero queda uno leve.
+- **Ráfaga en el peor momento**: tamaño del I ≫ tamaño del P; se envía cuando el enlace pierde y puede empeorar la congestión. Por eso LTR evita los intras.
+- **Doble codificación** en cada frontera: cómputo, memoria y energía en el STM32.
+- **Sobrecarga de ingest**: +2,8 % en AGiLE (H.265); en H.264, por medir.
+- **Estado en el edge**: no hay lazo al codificador, pero hay que llevar el estado de cada receptor.
+- **Granularidad**: solo se recupera en fronteras de pseudo-GOP.
+- **Depende del contenido**: con mucho movimiento, el GoP largo empeora (la mejora no es universal).
+- **Compatibilidad**: decodificadores sin soporte de Recovery Point SEI pueden negarse a arrancar desde un I no-IDR.
+
+---
+
+## Experimento (no va en la presentación; sirve para el informe)
+
+`avance/experimentos/perdida_gop.py` codifica Big Buck Bunny a 30 fps con GoP 30 (x264 Baseline, una referencia), quita un frame del Annex B (un P, un I no-IDR o el IDR), decodifica con FFmpeg y mide por frame. `avance/experimentos/figuras.py` genera la figura `figuras/propagacion.pdf`.
+
+```bash
+pip install av numpy matplotlib     # además: ffmpeg, x264 y LaTeX
+python3 avance/experimentos/perdida_gop.py big_buck_bunny.mp4 avance/experimentos/datos/perdida_gop.csv
+python3 avance/experimentos/figuras.py
+```
+
+Resultado: P perdido → 15 frames dañados; I no-IDR perdido → 30; IDR perdido → 30, de los cuales 13 congelados.
 
 ## Cómo seguimos
 
-Propuesta: un bloque por sesión, en orden de prioridad (1, 2, 3, 6, 4, 5, 9, 8, 7). En cada sesión te hago las preguntas de autoevaluación, corregimos lo que falle y pasamos al siguiente. Antes del 20.10, al menos los bloques 1 a 6 y un ensayo cronometrado con el guion.
+Un bloque por sesión: te hago las preguntas de autoevaluación, corregimos lo que falle y pasamos al siguiente. Antes de presentar: I.i a I.v, II y III, y un ensayo cronometrado con el guion.

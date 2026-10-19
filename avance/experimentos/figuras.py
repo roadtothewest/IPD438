@@ -1,8 +1,9 @@
-"""Figuras de la presentación de avance generadas desde datos medidos.
+"""Figura del experimento de pérdida, generada desde datos medidos.
 
   python3 figuras.py            # lee datos/perdida_gop.csv, escribe figuras/*.pdf
 
-Los datos salen de ../experimentos/perdida_gop.py.
+Los datos salen de perdida_gop.py (misma carpeta). No se usan en la presentación;
+quedan para el informe de avance.
 """
 
 import csv
