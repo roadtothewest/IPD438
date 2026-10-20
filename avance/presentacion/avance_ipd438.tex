@@ -122,7 +122,7 @@
     \raggedright
     \begin{itemize}
         \item \textbf{Una NAL\footnote{NAL: Network Abstraction Layer, la unidad que H.264 entrega a la red.} por slice}, no por macrobloque.
-        \item \textbf{PES\footnote{PES: Packetized Elementary Stream. Su marca de tiempo (PTS) cuenta ticks de 90 kHz desde el inicio del stream; no es hora del reloj.}:} encabezado con la marca de tiempo del frame + todas sus NAL.
+        \item \textbf{PES\footnote{PES: Packetized Elementary Stream.}:} encabezado con la marca de tiempo del frame + todas sus NAL.
         \item \textbf{TS\footnote{TS: Transport Stream, el contenedor de MPEG.}:} corta el PES en paquetes de 188 B.
         \item \textbf{SRT va dentro de UDP:} 7 TS por paquete, cada uno con número de secuencia y marca de tiempo.
     \end{itemize}
@@ -133,7 +133,6 @@
     \begin{itemize}
         \item \textbf{El decodificador:} lee la configuración (SPS/PPS) y decodifica el intra solo.
         \item \textbf{Cada P:} por cada macrobloque, copia un bloque del frame anterior (donde indica el vector de movimiento) y le suma una pequeña corrección.
-        \item \textbf{Lo muestra en su momento:} según la marca de tiempo del PES.
         \item \textbf{Lo que se pierde es un paquete SRT} (7 TS): el slice se daña desde ese punto hasta su final; los macrobloques anteriores se salvan.
         \item \textbf{Con un slice por fila de macrobloques}, sabemos en qué frame (tiempo) y en qué fila (espacio) está el daño.
     \end{itemize}
@@ -150,7 +149,7 @@
         \midrule
         7 / 8 & SPS / PPS & Configuración del video; van antes de cada IDR. \\
         5 & Slice IDR & Intra que reinicia el decodificador. \\
-        1 & Slice no-IDR & Los P, y el I-header\footnote{I-header: la misma imagen, codificada además como intra (AGiLE [1]).} (intra sin reinicio). \\
+        1 & Slice no-IDR & Los P, y el I-header\footnote{I-header: la misma imagen, codificada además como intra (AGiLE).} (intra sin reinicio). \\
         6 & SEI\footnote{SEI: Supplemental Enhancement Information.} & Datos extra; el decodificador los puede ignorar. \\
         \bottomrule
     \end{tabular}
@@ -175,13 +174,38 @@
     \footnotetext[4]{Recovery point: el decodificador puede retomar desde ese intra aunque no sea IDR.}
 \end{frame}
 
-% 6. ESTADO DEL ARTE: AGILE
-\begin{frame}{Estado del Arte: AGiLE [1]}
+% 6. PROBLEMA Y MOTIVACIÓN
+\begin{frame}{Problema y Motivación}
     \begin{itemize}
-        \item \textbf{Resuelve:} con GoP largo, un espectador nuevo espera el próximo intra.
+        \item \textbf{Problema:} una pérdida se arrastra hasta el próximo intra.
+        \item \textbf{Motivación:} sin propagación del error no hay anomalía; el decodificador solo la disimula.
+        \item \textbf{¿GoP corto?} El daño dura menos, pero todos los espectadores pagan más bits.
+    \end{itemize}
+
+    \vspace{0.4cm}
+    \centering
+    \begin{tikzpicture}
+        \secuencia{0.65}{30}{0}{40}{GoP 30}
+        \secuencia{0}{90}{0}{40}{GoP 90}
+        \ejetiempo{-0.25}
+        \begin{scope}[shift={(0, -0.75)}, font=\tiny]
+            \node[anchor=west] at (-2.6, 0) {$\blacktriangledown$ pérdida};
+            \fill[SentricaBlue] (-0.7, -0.08) rectangle ++(0.16, 0.16); \node[anchor=west] at (-0.5, 0) {intra};
+            \fill[Suave] (0.75, -0.08) rectangle ++(0.16, 0.16); \node[anchor=west] at (0.95, 0) {P};
+            \fill[Rojo] (1.75, -0.08) rectangle ++(0.16, 0.16); \node[anchor=west] at (1.95, 0) {dañado};
+        \end{scope}
+    \end{tikzpicture}
+\end{frame}
+
+% 7. ESTADO DEL ARTE: AGILE
+\begin{frame}{Estado del Arte: AGiLE}
+    {\scriptsize\color{gray} C. Chen, W. Yin, Z. Huang, S. Shi. \emph{AGiLE: Enhancing Adaptive GOP in Live Video Streaming}. ACM MMSys 2024.\par}
+    \vspace{0.1cm}
+    \begin{itemize}
+        \item \textbf{Resuelve:} con GoP largo, quien entra espera el próximo intra.
         \item \textbf{Idea:} un I-header cada 2 s, dentro de una SEI del P.
-        \item \textbf{Edge:} lo entrega solo a espectadores nuevos; al conectado se lo descarta.
-        \item \textbf{Indicadores:} BD-rate\footnote{BD-rate: diferencia de bits a igual calidad.} $-3{,}5$\,\%; subida $+2{,}8$\,\%; $-1{,}1$ VMAF\footnote{VMAF: calidad percibida de 0 a 100 (Netflix). Es la métrica que usan estos papers.} al entrar por un I-header.
+        \item \textbf{Edge:} se lo da solo a quien entra; al resto se lo descarta.
+        \item \textbf{Indicadores:} BD-rate\footnote{BD-rate: Bjøntegaard Delta rate, la diferencia promedio de bits a igual calidad.} $-3{,}5$\,\%; subida $+2{,}8$\,\%; $-1{,}1$ VMAF\footnote{VMAF: Video Multimethod Assessment Fusion, calidad percibida de 0 a 100.} al entrar por un I-header.
         \item \textbf{¿Esperamos mejorarlos?} No: reutilizamos sus I-headers para recuperar pérdidas.
     \end{itemize}
 
@@ -191,23 +215,24 @@
     }\par}
 \end{frame}
 
-% 7. ESTADO DEL ARTE: KEYFRAME INJECTION
-\begin{frame}{Estado del Arte: Keyframe Injection [2, 3]}
+% 8. ESTADO DEL ARTE: KEYFRAME INJECTION
+\begin{frame}{Estado del Arte: Keyframe Injection}
+    {\scriptsize\color{gray} H. Mareen, G. Van Wallendael et al. \emph{Electronics} 2021; \emph{Multimedia Tools and Applications} 2024; VCIP 2023.\par}
+    \vspace{0.1cm}
     \begin{itemize}
-        \item \textbf{H. Mareen, G. Van Wallendael et al.} Universidad de Gante, 2021--2024.
         \item \textbf{Qué hacen:} un flujo aparte, solo de keyframes. Quien entra o pierde paquetes pide uno y sigue con el stream normal.
-        \item \textbf{Indicadores:} caída de calidad $<0{,}94$ VMAF. Cada keyframe genera un peak de bitrate; en 2023 lo reducen inyectando P en vez de I [4].
+        \item \textbf{Indicadores:} caída de calidad $<0{,}94$ VMAF; cada keyframe inyectado genera un peak de bitrate.
+        \item \textbf{2023:} achican ese peak reparando con un P que se apoya en un frame anterior a la pérdida, en vez de un I.
         \item \textbf{Postura:} nos respalda, porque ya probaron que un keyframe extra repara la pérdida.
         \item \textbf{Diferencia:} sin flujo aparte (el I-header va en SEI) y sin pedido del reproductor (decide el edge).
     \end{itemize}
 \end{frame}
 
-% 8. PROBLEMA, MOTIVACIÓN Y PUNTO DE QUIEBRE
-\begin{frame}{Problema, Motivación y Punto de Quiebre}
+% 9. PUNTO DE QUIEBRE
+\begin{frame}{Punto de Quiebre}
     \begin{itemize}
-        \item \textbf{Problema:} una pérdida se arrastra hasta el próximo intra.
-        \item \textbf{Motivación:} sin propagación del error no hay anomalía; el decodificador solo la disimula.
-        \item \textbf{Punto de quiebre:} con un I-header cada 5 P, el daño dura como máximo 5 P, sin pedirle nada al codificador.
+        \item \textbf{Qué hacemos:} el edge le entrega el próximo I-header a quien perdió paquetes.
+        \item \textbf{Resultado:} con un I-header cada 5 P, el daño dura como máximo 5 P; el intra extra solo le llega a quien perdió.
     \end{itemize}
 
     \vspace{0.15cm}
@@ -228,20 +253,19 @@
     \end{tikzpicture}
 \end{frame}
 
-% 9. OBJETIVO
+% 10. OBJETIVO
 \begin{frame}{Objetivo}
     \begin{itemize}
         \item \textbf{Objetivo:} que un espectador que pierde paquetes recupere la imagen en el próximo I-header, y no en el próximo intra.
         \item \textbf{Ejemplo:} con GoP 90 a 30 fps, el daño dura hasta 3 s. Con un I-header cada 5 P, $\sim$0,2 s.
-        \item \textbf{Sin lazo al codificador:} decide el edge; el codificador no recibe pedidos.
-        \item \textbf{Sin costo con red sana:} hacia el espectador, el ancho de banda de un GoP largo.
+        \item \textbf{Sin pedidos al codificador por cada pérdida:} decide el edge.
+        \item \textbf{Sin costo con red sana:} el espectador que no pierde recibe lo mismo que con GoP 90.
     \end{itemize}
 \end{frame}
 
-% 10. TOPOLOGÍA
+% 11. TOPOLOGÍA
 \begin{frame}{Topología}
     \centering
-    \vspace{0.1cm}
     \resizebox{0.85\textwidth}{!}{%
     \begin{tikzpicture}[auto, thick]
         \node [cloud] (src) at (0, 0) {\textbf{Video}\\cámara o y4m};
@@ -252,6 +276,7 @@
 
         \path [line] (src) -- (enc);
         \path [line] (enc) -- node [above, font=\footnotesize, align=center] {P + I-header\\en SEI} node [below, font=\footnotesize] {subida} (edge);
+        \draw [-Latex, thick, dashed, Rojo] (edge.south) to [bend left=20] node [below, font=\footnotesize] {aviso, solo en modo B} (enc.south);
         \path [line] (edge.east) -- (v1.west);
         \path [line] (edge.east) -- (v2.west);
         \node [font=\footnotesize, anchor=south east] at (13.3, 0.8) {solo P};
@@ -260,31 +285,30 @@
     \end{tikzpicture}
     }
 
-    \vspace{0.1cm}
     \raggedright
     \begin{itemize}
-        \item \textbf{Modo A, siempre:} I-header cada 5 P; el edge lo reenvía solo a quien perdió.
-        \item \textbf{Modo B, a pedido:} el edge detecta pérdida y activa el flujo de I-headers\footnote{Ahorra subida con red sana, pero agrega un aviso del edge al codificador.}.
-        \item \textbf{SRT\footnote{SRT: Secure Reliable Transport, protocolo abierto sobre UDP para video en vivo [9].}:} secuencia y marca de tiempo en cada paquete $\rightarrow$ sabemos en qué frame y en qué slice se perdió.
+        \item \textbf{¿Cómo sabe el edge quién perdió?} Por SRT\footnote{SRT: Secure Reliable Transport, protocolo abierto sobre UDP para video en vivo.}, que ya avisa qué paquetes faltan. El reproductor no pide nada.
+        \item \textbf{Modo A, siempre:} un I-header cada 5 P; el edge se lo da solo a quien perdió.
+        \item \textbf{Modo B, al detectar pérdida:} el edge le pide al codificador activar los I-headers. Ahorra subida, pero agrega ese aviso.
     \end{itemize}
 \end{frame}
 
-% 11. CÓMO LO MEDIMOS
+% 12. CÓMO LO MEDIMOS
 \begin{frame}{Cómo lo Medimos}
     \begin{itemize}
         \item \textbf{Referencia:} el mismo stream decodificado sin pérdidas (integridad original).
-        \item \textbf{Integridad temporal:} las diferencias entre frames consecutivos deben parecerse a las de la referencia\footnote{Misma base que la información temporal (TI) de ITU-T P.910 [11] y que la parte temporal de ST-RRED [10].}.
-        \item \textbf{Integridad de imagen:} PSNR\footnote{PSNR: relación señal a ruido de pico, en dB.} de cada frame contra la referencia.
-        \item \textbf{Duración y congelamiento:} frames hasta recuperar la integridad; FRR\footnote{FRR: Frame Render Rate, frames mostrados / frames enviados [5].}.
+        \item \textbf{Integridad temporal:} las diferencias entre frames consecutivos deben parecerse a las de la referencia.
+        \item \textbf{Integridad de imagen:} PSNR\footnote{PSNR: Peak Signal-to-Noise Ratio. Error píxel a píxel contra la referencia, en dB.} de cada frame contra la referencia.
+        \item \textbf{Duración y congelamiento:} frames hasta recuperar la integridad; FRR\footnote{FRR: Frame Render Rate, frames mostrados / frames enviados (FrameTrace).}.
         \item \textbf{Costo:} bits extra hacia el espectador y en la subida (BD-rate).
     \end{itemize}
 \end{frame}
 
-% 12. RESULTADOS A PRODUCIR
+% 13. RESULTADOS A PRODUCIR
 \begin{frame}{Resultados a Producir}
     \textbf{Reproducir}
     \begin{itemize}
-        \item La degradación al entrar por un I-header (Fig.~12 de AGiLE [1]), ahora en H.264.
+        \item La degradación al entrar por un I-header que reporta AGiLE, ahora en H.264.
     \end{itemize}
 
     \vspace{0.2cm}
@@ -296,26 +320,8 @@
 
     \vspace{0.6cm}
     {\itshape \small \textcolor{SentricaBlue}{
-    \textbf{Impacto esperado:} recuperarse tan rápido como con un GoP corto, gastando hacia el espectador lo mismo que un GoP 90.
+    \textbf{Impacto esperado:} quien pierde paquetes se recupera como con un GoP corto, y solo él recibe bits extra; quien no pierde recibe lo mismo que con GoP 90.
     }\par}
-\end{frame}
-
-% 13. REFERENCIAS
-\begin{frame}{Referencias}
-    \scriptsize
-    \begin{itemize}
-        \item[{[1]}] C. Chen, W. Yin, Z. Huang, S. Shi. \emph{AGiLE: Enhancing Adaptive GOP in Live Video Streaming}. ACM MMSys '24, pp. 34--44.
-        \item[{[2]}] H. Mareen, M. Courteaux, P.-J. Speelmans, P. Lambert, G. Van Wallendael. \emph{A study on keyframe injection in three generations of video coding standards for fast channel switching and packet-loss repair}. Multimedia Tools and Applications 83, 2024.
-        \item[{[3]}] G. Van Wallendael, H. Mareen, J. Vounckx, P. Lambert. \emph{Keyframe Insertion: Enabling Low-Latency Random Access and Packet Loss Repair}. Electronics 10(6), 2021.
-        \item[{[4]}] H. Mareen, P. Lambert, G. Van Wallendael. \emph{P-Frame Injection for Efficient Packet-Loss Repair in Ultra-Low-Latency Video Streaming}. IEEE VCIP 2023.
-        \item[{[5]}] B. Denizer, L. Winkel, O. Landsiedel. \emph{FrameTrace: Frame-Level Telemetry for Media over QUIC}. EMS '25, ACM SIGCOMM 2025.
-        \item[{[6]}] T. Wiegand, G. Sullivan, G. Bjøntegaard, A. Luthra. \emph{Overview of the H.264/AVC video coding standard}. IEEE TCSVT, 2003.
-        \item[{[7]}] Y. Wang, Q.-F. Zhu. \emph{Error control and concealment for video communication: a review}. Proc. IEEE, 1998.
-        \item[{[8]}] ITU-T Rec. H.264. \emph{Advanced video coding for generic audiovisual services}.
-        \item[{[9]}] M. Sharabayko et al. \emph{The SRT Protocol}. IETF Internet-Draft draft-sharabayko-srt-01, 2021.
-        \item[{[10]}] R. Soundararajan, A. C. Bovik. \emph{Video Quality Assessment by Reduced Reference Spatio-Temporal Entropic Differencing}. IEEE TCSVT 23(4), 2013.
-        \item[{[11]}] ITU-T Rec. P.910. \emph{Subjective video quality assessment methods for multimedia applications}.
-    \end{itemize}
 \end{frame}
 
 % 14. CIERRE
@@ -323,5 +329,4 @@
     \centering
     \Huge \textcolor{SentricaBlue}{\textbf{Gracias por su atención}}
 \end{frame}
-
 \end{document}
