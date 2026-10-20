@@ -142,7 +142,7 @@
 % 5. LAS NAL QUE USAMOS
 \begin{frame}{Las NAL que Usamos}
     \centering
-    \renewcommand{\arraystretch}{1.25}
+    \renewcommand{\arraystretch}{1.1}
     \small
     \begin{tabular}{c l l}
         \toprule
@@ -150,35 +150,64 @@
         \midrule
         7 / 8 & SPS / PPS & Configuración del video; van antes de cada IDR. \\
         5 & Slice IDR & Intra que reinicia el decodificador. \\
-        1 & Slice no-IDR & Los P, y el I-header (intra sin reinicio). \\
+        1 & Slice no-IDR & Los P, y el I-header\footnote{I-header: la misma imagen, codificada además como intra (AGiLE [1]).} (intra sin reinicio). \\
         6 & SEI\footnote{SEI: Supplemental Enhancement Information.} & Datos extra; el decodificador los puede ignorar. \\
         \bottomrule
     \end{tabular}
 
-    \vspace{0.45cm}
+    \vspace{0.3cm}
     % El I-header (tipo 1) viaja dentro de una SEI (tipo 6) solo hasta el edge
     \begin{tikzpicture}[font=\footnotesize,
         caja/.style={rectangle, draw=SentricaBlue, fill=gray!10, rounded corners=2pt, minimum height=0.55cm, inner sep=2pt},
         ihdr/.style={caja, fill=SentricaBlue!15, font=\footnotesize\bfseries}]
-        \node[anchor=east] at (-0.15, 0) {Codificador $\to$ edge};
-        \node[anchor=east] at (-0.15, -0.8) {Edge $\to$ espectador sano};
-        \node[anchor=east] at (-0.15, -1.6) {Edge $\to$ espectador con pérdida};
+        \node[anchor=east] at (-0.15, 0) {Codificador $\to$ edge\footnotemark};
+        \node[anchor=east] at (-0.15, -0.7) {Edge $\to$ espectador sano};
+        \node[anchor=east] at (-0.15, -1.4) {Edge $\to$ espectador con pérdida};
         \draw[SentricaBlue, fill=white, rounded corners=2pt] (0, -0.3) rectangle (4.4, 0.3);
         \node[anchor=west] at (0.05, 0) {SEI (6)};
         \node[ihdr, minimum width=2.7cm] at (2.95, 0) {I-header (1)};
         \node[caja, minimum width=2.5cm] at (5.85, 0) {P (1)};
-        \node[caja, minimum width=2.5cm] at (5.85, -0.8) {P (1)};
-        \node[caja, minimum width=4.4cm] at (2.2, -1.6) {SEI (6): recovery point\footnotemark};
-        \node[ihdr, minimum width=2.5cm] at (5.85, -1.6) {I-header (1)};
+        \node[caja, minimum width=2.5cm] at (5.85, -0.7) {P (1)};
+        \node[caja, minimum width=4.4cm] at (2.2, -1.4) {SEI (6): recovery point\footnotemark};
+        \node[ihdr, minimum width=2.5cm] at (5.85, -1.4) {I-header (1)};
     \end{tikzpicture}
-    \footnotetext{Recovery point: el decodificador puede retomar desde ese intra aunque no sea IDR.}
+    \footnotetext[3]{Edge: servidor de distribución más cercano al espectador.}
+    \footnotetext[4]{Recovery point: el decodificador puede retomar desde ese intra aunque no sea IDR.}
 \end{frame}
 
-% 6. PROBLEMA Y PUNTO DE QUIEBRE
-\begin{frame}{Problema y Punto de Quiebre}
+% 6. ESTADO DEL ARTE: AGILE
+\begin{frame}{Estado del Arte: AGiLE [1]}
+    \begin{itemize}
+        \item \textbf{Resuelve:} con GoP largo, un espectador nuevo espera el próximo intra.
+        \item \textbf{Idea:} un I-header cada 2 s, dentro de una SEI del P.
+        \item \textbf{Edge:} lo entrega solo a espectadores nuevos; al conectado se lo descarta.
+        \item \textbf{Indicadores:} BD-rate\footnote{BD-rate: diferencia de bits a igual calidad.} $-3{,}5$\,\%; subida $+2{,}8$\,\%; $-1{,}1$ VMAF\footnote{VMAF: calidad percibida de 0 a 100 (Netflix). Es la métrica que usan estos papers.} al entrar por un I-header.
+        \item \textbf{¿Esperamos mejorarlos?} No: reutilizamos sus I-headers para recuperar pérdidas.
+    \end{itemize}
+
+    \vspace{0.2cm}
+    {\itshape \small \textcolor{SentricaBlue}{
+    \textbf{Idea fuerte:} el mecanismo para recuperarse de la pérdida ya está en la red, ya está pagado, y hoy se descarta.
+    }\par}
+\end{frame}
+
+% 7. ESTADO DEL ARTE: KEYFRAME INJECTION
+\begin{frame}{Estado del Arte: Keyframe Injection [2, 3]}
+    \begin{itemize}
+        \item \textbf{H. Mareen, G. Van Wallendael et al.} Universidad de Gante, 2021--2024.
+        \item \textbf{Qué hacen:} un flujo aparte, solo de keyframes. Quien entra o pierde paquetes pide uno y sigue con el stream normal.
+        \item \textbf{Indicadores:} caída de calidad $<0{,}94$ VMAF. Cada keyframe genera un peak de bitrate; en 2023 lo reducen inyectando P en vez de I [4].
+        \item \textbf{Postura:} nos respalda, porque ya probaron que un keyframe extra repara la pérdida.
+        \item \textbf{Diferencia:} sin flujo aparte (el I-header va en SEI) y sin pedido del reproductor (decide el edge).
+    \end{itemize}
+\end{frame}
+
+% 8. PROBLEMA, MOTIVACIÓN Y PUNTO DE QUIEBRE
+\begin{frame}{Problema, Motivación y Punto de Quiebre}
     \begin{itemize}
         \item \textbf{Problema:} una pérdida se arrastra hasta el próximo intra.
-        \item \textbf{Punto de quiebre:} con un I-header\footnote{I-header: la misma imagen codificada además como intra, dentro del stream (AGiLE [1]).} cada 5 P, el daño dura como máximo 5 P, sin pedirle nada al codificador.
+        \item \textbf{Motivación:} sin propagación del error no hay anomalía; el decodificador solo la disimula.
+        \item \textbf{Punto de quiebre:} con un I-header cada 5 P, el daño dura como máximo 5 P, sin pedirle nada al codificador.
     \end{itemize}
 
     \vspace{0.15cm}
@@ -199,40 +228,13 @@
     \end{tikzpicture}
 \end{frame}
 
-% 7. OBJETIVO
+% 9. OBJETIVO
 \begin{frame}{Objetivo}
     \begin{itemize}
         \item \textbf{Objetivo:} que un espectador que pierde paquetes recupere la imagen en el próximo I-header, y no en el próximo intra.
         \item \textbf{Ejemplo:} con GoP 90 a 30 fps, el daño dura hasta 3 s. Con un I-header cada 5 P, $\sim$0,2 s.
-        \item \textbf{Sin lazo al codificador:} decide el edge\footnote{Edge: servidor de distribución más cercano al espectador.}; el codificador no recibe pedidos.
+        \item \textbf{Sin lazo al codificador:} decide el edge; el codificador no recibe pedidos.
         \item \textbf{Sin costo con red sana:} hacia el espectador, el ancho de banda de un GoP largo.
-    \end{itemize}
-\end{frame}
-
-% 8. ESTADO DEL ARTE: AGILE
-\begin{frame}{Estado del Arte: AGiLE [1]}
-    \begin{itemize}
-        \item \textbf{Resuelve:} con GoP largo, un espectador nuevo espera el próximo intra.
-        \item \textbf{Idea:} un I-header cada 2 s, dentro de una SEI del P.
-        \item \textbf{Edge:} lo entrega solo a espectadores nuevos; al conectado se lo descarta.
-        \item \textbf{Indicadores:} BD-rate\footnote{BD-rate: diferencia de bits a igual calidad.} $-3{,}5$\,\%; subida $+2{,}8$\,\%; $-1{,}1$ VMAF\footnote{VMAF: calidad percibida de 0 a 100 (Netflix). Es la métrica que usan estos papers.} al entrar por un I-header.
-        \item \textbf{¿Esperamos mejorarlos?} No: reutilizamos sus I-headers para recuperar pérdidas.
-    \end{itemize}
-
-    \vspace{0.2cm}
-    {\itshape \small \textcolor{SentricaBlue}{
-    \textbf{Idea fuerte:} el mecanismo para recuperarse de la pérdida ya está en la red, ya está pagado, y hoy se descarta.
-    }\par}
-\end{frame}
-
-% 9. ESTADO DEL ARTE: KEYFRAME INJECTION
-\begin{frame}{Estado del Arte: Keyframe Injection [2, 3]}
-    \begin{itemize}
-        \item \textbf{H. Mareen, G. Van Wallendael et al.} Universidad de Gante, 2021--2024.
-        \item \textbf{Qué hacen:} un flujo aparte, solo de keyframes. Quien entra o pierde paquetes pide uno y sigue con el stream normal.
-        \item \textbf{Indicadores:} caída de calidad $<0{,}94$ VMAF. Cada keyframe genera un peak de bitrate; en 2023 lo reducen inyectando P en vez de I [4].
-        \item \textbf{Postura:} nos respalda, porque ya probaron que un keyframe extra repara la pérdida.
-        \item \textbf{Diferencia:} sin flujo aparte (el I-header va en SEI) y sin pedido del reproductor (decide el edge).
     \end{itemize}
 \end{frame}
 

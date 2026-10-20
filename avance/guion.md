@@ -1,6 +1,6 @@
 # Guion — presentación de avance IPD438
 
-Meta: **13 min**. Primero cómo funciona el video; después el punto de quiebre; después el estado del arte y cómo lo vamos a hacer. Las siglas están en notas al pie: dilas una vez en voz alta.
+Meta: **13 min**. Mismo orden que tu apunte: contenidos previos, estado del arte, problema y punto de quiebre, objetivo, resultados y referencias. Las siglas están en notas al pie: dilas una vez en voz alta.
 
 | # | Diapositiva | Tiempo |
 |---|---|---|
@@ -9,10 +9,10 @@ Meta: **13 min**. Primero cómo funciona el video; después el punto de quiebre;
 | 3 | De la imagen a la red | 1:15 |
 | 4 | Cómo se reconstruye el video | 1:00 |
 | 5 | Las NAL que usamos | 1:00 |
-| 6 | Problema y punto de quiebre | 1:30 |
-| 7 | Objetivo | 0:45 |
-| 8 | Estado del arte: AGiLE | 1:15 |
-| 9 | Estado del arte: keyframe injection | 1:15 |
+| 6 | Estado del arte: AGiLE | 1:15 |
+| 7 | Estado del arte: keyframe injection | 1:15 |
+| 8 | Problema, motivación y punto de quiebre | 1:30 |
+| 9 | Objetivo | 0:45 |
 | 10 | Topología | 1:15 |
 | 11 | Cómo lo medimos | 1:00 |
 | 12 | Resultados a producir | 0:45 |
@@ -29,15 +29,15 @@ Meta: **13 min**. Primero cómo funciona el video; después el punto de quiebre;
 
 **4. Cómo se reconstruye.** El decodificador lee la configuración y decodifica el intra solo. Para cada P, por cada macrobloque, copia un bloque del frame anterior desde donde indica el vector de movimiento y le suma una pequeña corrección. Si el frame anterior está dañado, la copia también lo está. Lo que se pierde es un paquete SRT: el slice se daña desde ese punto hasta su final. Si cada slice es una fila de macrobloques, sabemos exactamente en qué frame y en qué fila quedó el daño.
 
-**5. Las NAL que usamos.** Cuatro tipos: configuración (SPS/PPS), IDR, slice normal y SEI, que son datos extra que el decodificador puede ignorar. Señala la figura: el I-header es un slice normal (tipo 1), pero hacia el edge viaja escondido dentro de una SEI, junto al P. Al espectador sano, el edge le quita la SEI. Al que perdió paquetes le entrega el I-header en lugar del P, junto con otra SEI, el recovery point, que le dice al decodificador que puede retomar desde ahí.
+**5. Las NAL que usamos.** Cuatro tipos: configuración (SPS/PPS), IDR, slice normal y SEI, que son datos extra que el decodificador puede ignorar. Señala la figura. El I-header es la misma imagen, codificada además como intra: un slice normal (tipo 1). Hacia el edge, el servidor más cercano al espectador, viaja escondido dentro de una SEI, junto al P. Al espectador sano, el edge le quita la SEI. Al que perdió paquetes le entrega el I-header en lugar del P, junto con otra SEI, el recovery point, que le dice al decodificador que puede retomar desde ahí.
 
-**6. Problema y punto de quiebre.** El problema: una pérdida se arrastra hasta el próximo intra. Señala la figura, con la misma pérdida en las cuatro filas: con GoP 30 el daño dura medio segundo y con GoP 90, casi dos. Con un I-header cada 5 P, en ambos casos dura dos frames y después queda solo una deriva leve. "Ese es el punto de quiebre: recuperarse temprano sin pedirle nada al codificador."
+**6. AGiLE.** Paper de ByteDance, MMSys 2024. Usa I-headers en SEI para otra cosa: que un espectador nuevo no espere el próximo intra. El edge se los da solo a los nuevos y al conectado se los descarta. Sus números: −3,5 % de bits a igual calidad, +2,8 % de subida, −1,1 VMAF al entrar por un I-header. Lee la idea fuerte, despacio.
 
-**7. Objetivo.** Lee el objetivo y el ejemplo: de hasta 3 s a unos 0,2 s. Sin lazo al codificador y, con la red sana, el ancho de banda de un GoP largo hacia el espectador.
+**7. Keyframe injection.** "Hannes Mareen y Glenn Van Wallendael, de la Universidad de Gante, resolvieron algo parecido": un flujo aparte solo de keyframes, que pide quien entra o pierde paquetes. "Nos respaldan: ya probaron que un keyframe extra repara la pérdida. La diferencia: no usamos un flujo aparte y el reproductor no pide nada."
 
-**8. AGiLE.** Paper de ByteDance, MMSys 2024. Usa I-headers en SEI para otra cosa: que un espectador nuevo no espere el próximo intra. El edge se los da solo a los nuevos y al conectado se los descarta. Sus números: −3,5 % de bits a igual calidad, +2,8 % de subida, −1,1 VMAF al entrar por un I-header. Lee la idea fuerte, despacio.
+**8. Problema, motivación y punto de quiebre.** Ya vimos que los I-headers existen y que un keyframe extra repara la pérdida. El problema: una pérdida se arrastra hasta el próximo intra. La motivación: sin propagación del error no hay anomalía; el decodificador solo la disimula, congelando o copiando el frame anterior. Señala la figura, con la misma pérdida en las cuatro filas: con GoP 30 el daño dura unos 0,7 s y con GoP 90, casi 2 s. Con un I-header cada 5 P, en ambos casos dura dos frames y después queda solo una deriva leve. "Ese es el punto de quiebre: recuperarse temprano sin pedirle nada al codificador."
 
-**9. Keyframe injection.** "Hannes Mareen y Glenn Van Wallendael, de la Universidad de Gante, resolvieron algo parecido": un flujo aparte solo de keyframes, que pide quien entra o pierde paquetes. "Nos respaldan: ya probaron que un keyframe extra repara la pérdida. La diferencia: no usamos un flujo aparte y el reproductor no pide nada."
+**9. Objetivo.** Lee el objetivo y el ejemplo: de hasta 3 s a unos 0,2 s. Sin lazo al codificador y, con la red sana, el ancho de banda de un GoP largo hacia el espectador.
 
 **10. Topología.** El codificador (STM32N6) manda los P y los I-headers en SEI al edge, que guarda el último. Dos modos a evaluar: A, el I-header viaja siempre y el edge lo reenvía solo a quien perdió; B, el edge detecta la pérdida y recién ahí activa el flujo de I-headers. SRT nos dice qué paquete se perdió y con qué marca de tiempo, o sea, en qué frame y en qué slice.
 
