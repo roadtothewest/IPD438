@@ -56,6 +56,30 @@
 }
 
 % --- METADATOS ---
+% Empaquetamiento: NAL con cabecera. #1 x, #2 y, #3 ancho, #4 color, #5 texto, #6 color del texto
+\newcommand{\nal}[6]{%
+  \fill[#4] (#1, #2-0.22) rectangle ++(#3, 0.44);
+  \fill[black!70] (#1, #2-0.22) rectangle ++(0.16, 0.44);
+  \node[font=\scriptsize, text=#6] at ({#1+0.08+#3/2}, #2) {#5};
+}
+% PES de un frame a la altura #1; #2 = 1 muestra textos
+\newcommand{\pes}[2]{%
+  \fill[SentricaBlue] (2.5, #1-0.22) rectangle ++(2.2, 0.44);
+  \ifnum#2=1 \node[font=\scriptsize, text=white] at (3.6, #1) {marca de tiempo};\fi
+  \ifnum#2=1 \def\ta{slice 1}\def\tb{slice 2}\def\tc{slice 3}\def\td{slice 4}\else \def\ta{}\def\tb{}\def\tc{}\def\td{}\fi
+  \nal{4.7}{#1}{1.9}{SentricaBlue!65}{\ta}{white}
+  \nal{6.6}{#1}{1.5}{SentricaBlue!40}{\tb}{black}
+  \nal{8.1}{#1}{2.2}{SentricaBlue!20}{\tc}{black}
+  \nal{10.3}{#1}{1.2}{gray!35}{\td}{black}
+}
+% El PES cortado en paquetes TS de 188 B, a la altura #1
+\newcommand{\paquetests}[1]{%
+  \pes{#1}{0}
+  \foreach \j in {0,...,14}{%
+    \draw[white, line width=1.2pt] ({2.5+\j*0.6}, #1-0.3) -- ++(0, 0.6);
+    \fill[black!70] ({2.5+\j*0.6+0.02}, #1-0.28) rectangle ++(0.1, 0.56);
+  }
+}
 \title{\textbf{Recuperación de Video bajo Pérdida}}
 \subtitle{Presentación de Avance -- IPD438}
 \author{Vicente Andrade Ercilla}
@@ -128,7 +152,49 @@
     \end{itemize}
 \end{frame}
 
-% 4. CÓMO SE RECONSTRUYE
+% 4. EMPAQUETAMIENTO
+\begin{frame}{Cómo se Empaqueta un Frame}
+    \centering
+    \vspace{0.1cm}
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[font=\footnotesize]
+        \foreach \y/\t in {3.9/Frame, 2.4/NAL, 1.4/PES, 0.4/TS, -0.7/SRT en UDP}
+            \node[anchor=east, font=\footnotesize\bfseries, text=SentricaBlue] at (2.3, \y) {\t};
+        % Frame: 8 x 4 macrobloques; cada fila es un slice
+        \foreach \r/\c in {0/SentricaBlue!65, 1/SentricaBlue!40, 2/SentricaBlue!20, 3/gray!35}{
+            \foreach \k in {0,...,7}
+                \filldraw[fill=\c, draw=white, line width=0.6pt] ({2.5+\k*0.4}, {4.3-\r*0.4}) rectangle ++(0.4, 0.4);
+        }
+        \node[anchor=west, text=gray, font=\scriptsize, align=left] at (5.9, 3.9) {cada cuadro = un macrobloque de 16$\times$16 px\\cada fila = un slice};
+        \fill[black!70] (11.7, 3.68) rectangle ++(0.16, 0.44); \node[anchor=west, text=gray, font=\scriptsize] at (11.9, 3.9) {cabecera};
+        % NAL: una por slice
+        \nal{2.5}{2.4}{1.9}{SentricaBlue!65}{slice 1}{white}
+        \nal{4.55}{2.4}{1.5}{SentricaBlue!40}{slice 2}{black}
+        \nal{6.2}{2.4}{2.2}{SentricaBlue!20}{slice 3}{black}
+        \nal{8.55}{2.4}{1.2}{gray!35}{slice 4}{black}
+        \node[anchor=west, text=gray, font=\scriptsize] at (9.95, 2.4) {una NAL por slice};
+        % PES: marca de tiempo + todas las NAL del frame
+        \pes{1.4}{1}
+        \node[anchor=west, text=gray, font=\scriptsize] at (11.7, 1.4) {un frame};
+        % TS: el PES cortado en trozos de 188 B
+        \paquetests{0.4}
+        \node[anchor=west, text=gray, font=\scriptsize] at (11.7, 0.4) {188 B c/u};
+        % SRT en UDP: 7 TS por paquete
+        \fill[gray!60] (2.5, -0.92) rectangle ++(0.6, 0.44); \node[font=\scriptsize, text=white] at (2.8, -0.7) {UDP};
+        \fill[SentricaBlue!60] (3.1, -0.92) rectangle ++(1.2, 0.44); \node[font=\scriptsize, text=white] at (3.7, -0.7) {SRT};
+        \begin{scope}[shift={(1.8, -1.1)}]
+            \clip (2.5, 0.08) rectangle (6.7, 0.72);
+            \paquetests{0.4}
+        \end{scope}
+        \draw[gray, dashed] (2.5, 0.1) -- (4.3, -0.46);
+        \draw[gray, dashed] (6.7, 0.1) -- (8.5, -0.46);
+        \node[anchor=west, text=gray, font=\scriptsize] at (8.7, -0.7) {7 TS = 1316 B, con número de secuencia};
+    \end{tikzpicture}}
+
+    \vspace{0.3cm}
+    {\small Un paquete SRT lleva solo un trozo del frame: si se pierde, se daña el slice que caía en ese trozo.}
+\end{frame}
+% 5. CÓMO SE RECONSTRUYE
 \begin{frame}{Cómo se Reconstruye el Video}
     \begin{itemize}
         \item \textbf{El decodificador:} lee la configuración (SPS/PPS) y decodifica el intra solo.
@@ -138,8 +204,8 @@
     \end{itemize}
 \end{frame}
 
-% 5. LAS NAL QUE USAMOS
-\begin{frame}{Las NAL que Usamos}
+% 6. LAS NAL QUE USAMOS
+\begin{frame}{Las NAL que Usamos [7]}
     \centering
     \renewcommand{\arraystretch}{1.1}
     \small
@@ -174,7 +240,7 @@
     \footnotetext[4]{Recovery point: el decodificador puede retomar desde ese intra aunque no sea IDR.}
 \end{frame}
 
-% 6. PROBLEMA Y MOTIVACIÓN
+% 7. PROBLEMA Y MOTIVACIÓN
 \begin{frame}{Problema y Motivación}
     \begin{itemize}
         \item \textbf{Problema:} una pérdida se arrastra hasta el próximo intra.
@@ -197,9 +263,9 @@
     \end{tikzpicture}
 \end{frame}
 
-% 7. ESTADO DEL ARTE: AGILE
-\begin{frame}{Estado del Arte: AGiLE}
-    {\scriptsize\color{gray} C. Chen, W. Yin, Z. Huang, S. Shi. \emph{AGiLE: Enhancing Adaptive GOP in Live Video Streaming}. ACM MMSys 2024.\par}
+% 8. ESTADO DEL ARTE: AGILE
+\begin{frame}{Estado del Arte: AGiLE [1]}
+    {\scriptsize\color{gray} C. Chen, W. Yin, Z. Huang, S. Shi (ByteDance). ACM MMSys 2024.\par}
     \vspace{0.1cm}
     \begin{itemize}
         \item \textbf{Resuelve:} con GoP largo, quien entra espera el próximo intra.
@@ -215,20 +281,20 @@
     }\par}
 \end{frame}
 
-% 8. ESTADO DEL ARTE: KEYFRAME INJECTION
-\begin{frame}{Estado del Arte: Keyframe Injection}
-    {\scriptsize\color{gray} H. Mareen, G. Van Wallendael et al. \emph{Electronics} 2021; \emph{Multimedia Tools and Applications} 2024; VCIP 2023.\par}
+% 9. ESTADO DEL ARTE: KEYFRAME INJECTION
+\begin{frame}{Estado del Arte: Keyframe Injection [2, 3]}
+    {\scriptsize\color{gray} H. Mareen, G. Van Wallendael et al. (Universidad de Gante), 2021--2024.\par}
     \vspace{0.1cm}
     \begin{itemize}
         \item \textbf{Qué hacen:} un flujo aparte, solo de keyframes. Quien entra o pierde paquetes pide uno y sigue con el stream normal.
         \item \textbf{Indicadores:} caída de calidad $<0{,}94$ VMAF; cada keyframe inyectado genera un peak de bitrate.
-        \item \textbf{2023:} achican ese peak reparando con un P que se apoya en un frame anterior a la pérdida, en vez de un I.
+        \item \textbf{2023:} achican ese peak reparando con un P que se apoya en un frame anterior a la pérdida, en vez de un I [4].
         \item \textbf{Postura:} nos respalda, porque ya probaron que un keyframe extra repara la pérdida.
         \item \textbf{Diferencia:} sin flujo aparte (el I-header va en SEI) y sin pedido del reproductor (decide el edge).
     \end{itemize}
 \end{frame}
 
-% 9. PUNTO DE QUIEBRE
+% 10. PUNTO DE QUIEBRE
 \begin{frame}{Punto de Quiebre}
     \begin{itemize}
         \item \textbf{Qué hacemos:} el edge le entrega el próximo I-header a quien perdió paquetes.
@@ -253,7 +319,7 @@
     \end{tikzpicture}
 \end{frame}
 
-% 10. OBJETIVO
+% 11. OBJETIVO
 \begin{frame}{Objetivo}
     \begin{itemize}
         \item \textbf{Objetivo:} que un espectador que pierde paquetes recupere la imagen en el próximo I-header, y no en el próximo intra.
@@ -263,7 +329,7 @@
     \end{itemize}
 \end{frame}
 
-% 11. TOPOLOGÍA
+% 12. TOPOLOGÍA
 \begin{frame}{Topología}
     \centering
     \resizebox{0.85\textwidth}{!}{%
@@ -287,24 +353,24 @@
 
     \raggedright
     \begin{itemize}
-        \item \textbf{¿Cómo sabe el edge quién perdió?} Por SRT\footnote{SRT: Secure Reliable Transport, protocolo abierto sobre UDP para video en vivo.}, que ya avisa qué paquetes faltan. El reproductor no pide nada.
+        \item \textbf{¿Cómo sabe el edge quién perdió?} Por SRT\footnote{SRT: Secure Reliable Transport, protocolo abierto sobre UDP para video en vivo [6].}, que ya avisa qué paquetes faltan. El reproductor no pide nada.
         \item \textbf{Modo A, siempre:} un I-header cada 5 P; el edge se lo da solo a quien perdió.
         \item \textbf{Modo B, al detectar pérdida:} el edge le pide al codificador activar los I-headers. Ahorra subida, pero agrega ese aviso.
     \end{itemize}
 \end{frame}
 
-% 12. CÓMO LO MEDIMOS
+% 13. CÓMO LO MEDIMOS
 \begin{frame}{Cómo lo Medimos}
     \begin{itemize}
         \item \textbf{Referencia:} el mismo stream decodificado sin pérdidas (integridad original).
         \item \textbf{Integridad temporal:} las diferencias entre frames consecutivos deben parecerse a las de la referencia.
         \item \textbf{Integridad de imagen:} PSNR\footnote{PSNR: Peak Signal-to-Noise Ratio. Error píxel a píxel contra la referencia, en dB.} de cada frame contra la referencia.
-        \item \textbf{Duración y congelamiento:} frames hasta recuperar la integridad; FRR\footnote{FRR: Frame Render Rate, frames mostrados / frames enviados (FrameTrace).}.
+        \item \textbf{Duración y congelamiento:} frames hasta recuperar la integridad; FRR\footnote{FRR: Frame Render Rate, frames mostrados / frames enviados [5].}.
         \item \textbf{Costo:} bits extra hacia el espectador y en la subida (BD-rate).
     \end{itemize}
 \end{frame}
 
-% 13. RESULTADOS A PRODUCIR
+% 14. RESULTADOS A PRODUCIR
 \begin{frame}{Resultados a Producir}
     \textbf{Reproducir}
     \begin{itemize}
@@ -324,7 +390,21 @@
     }\par}
 \end{frame}
 
-% 14. CIERRE
+% 15. REFERENCIAS
+\begin{frame}{Referencias}
+    \scriptsize
+    \begin{itemize}
+        \item[{[1]}] C. Chen, W. Yin, Z. Huang, S. Shi. \emph{AGiLE: Enhancing Adaptive GOP in Live Video Streaming}. ACM MMSys '24, pp. 34--44.
+        \item[{[2]}] H. Mareen, M. Courteaux, P.-J. Speelmans, P. Lambert, G. Van Wallendael. \emph{A study on keyframe injection in three generations of video coding standards for fast channel switching and packet-loss repair}. Multimedia Tools and Applications 83, 2024.
+        \item[{[3]}] G. Van Wallendael, H. Mareen, J. Vounckx, P. Lambert. \emph{Keyframe Insertion: Enabling Low-Latency Random Access and Packet Loss Repair}. Electronics 10(6), 2021.
+        \item[{[4]}] H. Mareen, P. Lambert, G. Van Wallendael. \emph{P-Frame Injection for Efficient Packet-Loss Repair in Ultra-Low-Latency Video Streaming}. IEEE VCIP 2023.
+        \item[{[5]}] B. Denizer, L. Winkel, O. Landsiedel. \emph{FrameTrace: Frame-Level Telemetry for Media over QUIC}. EMS '25, ACM SIGCOMM 2025.
+        \item[{[6]}] M. Sharabayko et al. \emph{The SRT Protocol}. IETF Internet-Draft draft-sharabayko-srt-01, 2021.
+        \item[{[7]}] ITU-T Rec. H.264. \emph{Advanced video coding for generic audiovisual services}.
+    \end{itemize}
+\end{frame}
+
+% 16. CIERRE
 \begin{frame}
     \centering
     \Huge \textcolor{SentricaBlue}{\textbf{Gracias por su atención}}
