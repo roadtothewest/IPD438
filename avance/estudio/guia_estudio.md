@@ -14,7 +14,7 @@ Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, 
 
 ## I. Contenidos previos
 
-### i) Códec predictivo y propagación del error — diapositivas 3 y 5
+### i) Códec predictivo y propagación del error
 
 **En la presentación**
 - Video = 30 imágenes por segundo. Se comprime porque frames vecinos se parecen.
@@ -32,7 +32,7 @@ Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, 
 2. Si pierdo el P número 5 de un GoP de 30, ¿cuántos frames se dañan?
 3. ¿Por qué el I es a la vez el frame más caro de perder y el más probable de perder?
 
-### ii) VCL / NAL en H.264 — diapositiva 4
+### ii) VCL / NAL en H.264
 
 **En la presentación**
 - Jerarquía: **segmento** (lo que el servidor guarda y reparte) → **GoP** → **frame** → **slice** (trozo de frame que se decodifica solo) → **NAL** (la caja que H.264 entrega a la red).
@@ -53,7 +53,7 @@ Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, 
 2. Di el tipo de NAL de un IDR, un P y una SEI.
 3. ¿Qué es un access unit y en qué se diferencia de una NAL?
 
-### iii) Slice header y gestión de referencias (!!!) — diapositivas 5 y 12
+### iii) Slice header y gestión de referencias (!!!)
 
 **En la presentación**
 - Perder un IDR es el peor caso: además se pierde la orden de "empezar de cero" y la imagen puede congelarse.
@@ -72,7 +72,7 @@ Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, 
 2. ¿Por qué el I-header no puede ser IDR?
 3. ¿Por qué con varias referencias no sirve?
 
-### iv) SEI (Anexo D de H.264) (!!!) — diapositivas 4 y 6
+### iv) SEI (Anexo D de H.264) (!!!)
 
 **En la presentación**
 - SEI = datos extra que el decodificador puede ignorar. AGiLE esconde el I-header ahí.
@@ -83,7 +83,7 @@ Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, 
 
 **Autoevaluación:** ¿qué tipo de SEI lleva el I-header y cuál permite arrancar desde él?
 
-### v) Encapsulación y transporte — diapositiva 9
+### v) Encapsulación y transporte
 
 **En la presentación**
 - Uso **SRT**: retransmite dentro de una latencia fija y descarta lo que no llega a tiempo. Lleva MPEG-TS. El emisor sabe qué descartó.
@@ -110,12 +110,12 @@ Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, 
 2. ¿Por qué SRT le resuelve al edge la pregunta "¿a quién le entrego el I-header?"?
 3. ¿Cómo se detecta una pérdida en MPEG-TS?
 
-### vi) Ocultamiento de errores — diapositiva 5
+### vi) Ocultamiento de errores
 
 - El decodificador puede congelar, copiar el frame anterior o compensar movimiento. **Disimula** el daño (baja la severidad); **no lo elimina** (no acorta la duración). Nosotros buscamos eliminarlo.
 - Por eso medimos también congelamiento: ocultar ≠ recuperar.
 
-### vii) STM32 — no va en la presentación
+### vii) STM32
 
 - Los codificadores por hardware embebidos suelen ser **Constrained Baseline**: sin B-frames.
 - **TMVP** (*Temporal Motion Vector Prediction*) es de H.265; AGiLE lo desactiva. En H.264 sin B-frames probablemente no aplica. **[por verificar]** con el codificador concreto.
@@ -123,7 +123,7 @@ Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, 
 
 ---
 
-## II. Estado del arte — diapositivas 6, 7 y 8
+## II. Estado del arte
 
 ### AGiLE [2] — el fuerte **[paper]**
 
@@ -182,41 +182,43 @@ B. Denizer, L. Winkel, O. Landsiedel. EMS '25, ACM SIGCOMM **2025**, pp. 31–36
 
 ---
 
-## III. Motivación y problema — diapositiva 10
+## III. Motivación y problema
 
 **En la presentación**
 1. Sin propagación del error no habría problema.
 2. Hoy: pedir un intra (lazo) o mandar intras siempre (costo con red sana).
-3. **Quiebre**: AGiLE alarga el GoP a 10 s → una pérdida dura hasta 10 s.
-4. **Anomalía**: cada 2 s el edge tiene un I-header que lo arreglaría… y lo descarta.
+3. **Quiebre**: con GoP largo (ej. 90 a 30 fps), una pérdida dura hasta 3 s.
+4. **Anomalía**: AGiLE ya deja I-headers en el edge… y los descarta para quien perdió paquetes.
 5. **Idea fuerte**: "El mecanismo para recuperarse de la pérdida ya está en la red, ya está pagado, y hoy se descarta."
 
 **Si preguntan**
 - "Pagado" = pagado hasta el edge (ingest y CDN). En la última milla se paga solo cuando se entrega, y solo a quien lo necesita.
 - Frase útil: *"No elimino el intra. Elimino el intra que se envía a quien no lo necesita."*
 
-## IV. Objetivo — diapositiva 11
+## IV. Objetivo
 
-- Demostrar que entregar el I-header a quien perdió paquetes corta el daño en la próxima frontera (≤ 2 s) y no en el próximo I (≤ 10 s), sin lazo al codificador.
+- Que un espectador que pierde paquetes recupere la imagen en el próximo I-header y no en el próximo intra. Ejemplo: GoP 90 a 30 fps → hasta 3 s de daño; con un I-header cada 5 P → ~0,2 s. Sin lazo al codificador y con el ancho de banda de un GoP largo en la última milla.
+- Costo a medir: un I-header cada 5 P sube bastante los bits del ingest (codificador → edge). Cada cuántos P va un I-header es la variable a barrer.
 - Meta (tu apunte): reducir la duración de los artefactos al mismo ancho de banda en el último salto que un GoP largo, cerca de un GoP corto sin su costo permanente.
 - Métricas:
   - **Duración**: frames desde la pérdida hasta la imagen limpia.
-  - **Severidad**: VMAF (o PSNR) por frame contra la referencia. **VMAF**: calidad percibida, 0–100 (Netflix). **PSNR**: relación señal a ruido, en dB.
+  - **Severidad**: VMAF (o PSNR) por frame contra la referencia. **VMAF** (*Video Multimethod Assessment Fusion*, Netflix 2016): compara cada frame con el original y predice la nota que daría una persona, de 0 a 100; combina fidelidad visual, pérdida de detalle y movimiento, con un modelo entrenado con notas de personas. **PSNR**: relación señal a ruido, en dB.
   - **Congelamiento**: FRR o duración de stalls. Ocultar ≠ íntegro.
 - **Promesa**: "Recuperarse de la pérdida sin pedirle nada al codificador, usando un punto de recuperación que ya está en la red."
 
-## V. Resultados a producir — diapositiva 12
+## V. Resultados a producir
 
 - Fig. 12 de AGiLE en H.264: caída de VMAF según el índice del I-header por el que se entra.
 - Pasos (tu apunte): codificar → separar Annex B (FFmpeg) → reemplazar P por I-H → concatenar → medir VMAF.
 - Ya probado: x264 puede forzar un I no-IDR en una posición dada (con un `qpfile`, tipo `i`); separar el Annex B y quitar frames funciona (`avance/experimentos/perdida_gop.py`).
-- Benchmark en la plataforma: GoP largo, GoP corto, PLI y propuesta con la misma pérdida.
+- Benchmark en la plataforma, con la misma pérdida: GoP 90 sin protección, GoP corto, y GoP 90 + I-header cada 5 P.
+- Original limpio para VMAF: un y4m 4:2:0 sin comprimir (el codificador del STM32N6 lo acepta tal cual como `YUV420_PLANAR`; no acepta NV16). Fuentes: el dataset UVG (MMSys 2020, 4K a 50/120 fps, YUV 4:2:0 sin comprimir; se reduce a 720p) o las secuencias de Xiph.
 
-## VI. Referencias — diapositiva 14
+## VI. Referencias
 
 FrameTrace, AGiLE, Wiegand 2003, Wang & Zhu 1998, Sjöberg 2012, ITU-T H.264 (Anexos B y D), RFC 6184, RFC 8834 y, nuevo, el borrador de **SRT** (Sharabayko et al., 2021).
 
-## VII. Costos — diapositiva 13
+## VII. Costos
 
 - **Exactitud**: deriva hasta el próximo I; se reduce la duración del artefacto pero queda uno leve.
 - **Ráfaga en el peor momento**: tamaño del I ≫ tamaño del P; se envía cuando el enlace pierde y puede empeorar la congestión. Por eso LTR evita los intras.
