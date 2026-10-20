@@ -135,7 +135,7 @@
         \item \textbf{Problema que resuelve:} con GoP largo, un espectador nuevo espera el próximo intra para ver algo.
         \item \textbf{Idea:} un I-header en cada frontera de pseudo-GOP (cada 2 s en el paper), dentro de una SEI del P.
         \item \textbf{Edge:} se lo entrega solo a espectadores nuevos; al conectado se lo descarta.
-        \item \textbf{Indicadores:} BD-rate\footnote{BD-rate: diferencia de bits a igual calidad.} $-3{,}5$\,\%; datos de ingest $+2{,}8$\,\%; calidad al entrar por un I-header $-1{,}1$ VMAF.
+        \item \textbf{Indicadores:} BD-rate\footnote{BD-rate: diferencia de bits a igual calidad.} $-3{,}5$\,\%; datos de ingest $+2{,}8$\,\%; calidad al entrar por un I-header $-1{,}1$ VMAF\footnote{VMAF: calidad percibida de 0 a 100 (Netflix). Es la métrica que usan estos papers.}.
         \item \textbf{¿Esperamos mejorarlos?} No: reutilizamos sus I-headers para recuperar pérdidas.
     \end{itemize}
 \end{frame}
@@ -168,11 +168,11 @@
 % 9. CÓMO LO MEDIMOS
 \begin{frame}{Cómo lo Medimos}
     \begin{itemize}
-        \item \textbf{Duración:} frames desde la pérdida hasta la imagen limpia.
-        \item \textbf{Calidad, VMAF\footnote{VMAF: Video Multimethod Assessment Fusion (Netflix, 2016).}:} compara cada frame recibido con el original y predice cuánto lo notaría una persona, de 0 a 100.
-        \item \textbf{Congelamiento, FRR\footnote{FRR: Frame Render Rate, frames mostrados / frames enviados [5].}:} congelar no cuenta como recuperar.
+        \item \textbf{Referencia:} el mismo stream decodificado sin pérdidas (integridad original).
+        \item \textbf{Integridad temporal:} las diferencias entre frames consecutivos deben parecerse a las de la referencia\footnote{Misma base que la información temporal (TI) de ITU-T P.910 [11] y que la parte temporal de ST-RRED [10].}.
+        \item \textbf{Integridad de imagen:} PSNR\footnote{PSNR: relación señal a ruido de pico, en dB.} de cada frame contra la referencia.
+        \item \textbf{Duración y congelamiento:} frames hasta recuperar la integridad; FRR\footnote{FRR: Frame Render Rate, frames mostrados / frames enviados [5].}.
         \item \textbf{Costo:} bits extra en el ingest y en la última milla.
-        \item \textbf{Referencia limpia:} un video de prueba sin comprimir (y4m) entra al codificador y sirve de original.
     \end{itemize}
 \end{frame}
 
@@ -180,7 +180,7 @@
 \begin{frame}{Resultados a Producir}
     \textbf{Reproducir}
     \begin{itemize}
-        \item Caída de VMAF al entrar por un I-header (Fig.~12 de AGiLE [1]), ahora en H.264.
+        \item La degradación al entrar por un I-header (Fig.~12 de AGiLE [1]), ahora en H.264.
     \end{itemize}
 
     \vspace{0.2cm}
@@ -214,6 +214,8 @@
         \item[{[7]}] Y. Wang, Q.-F. Zhu. \emph{Error control and concealment for video communication: a review}. Proc. IEEE, 1998.
         \item[{[8]}] ITU-T Rec. H.264. \emph{Advanced video coding for generic audiovisual services}.
         \item[{[9]}] M. Sharabayko et al. \emph{The SRT Protocol}. IETF Internet-Draft draft-sharabayko-srt-01, 2021.
+        \item[{[10]}] R. Soundararajan, A. C. Bovik. \emph{Video Quality Assessment by Reduced Reference Spatio-Temporal Entropic Differencing}. IEEE TCSVT 23(4), 2013.
+        \item[{[11]}] ITU-T Rec. P.910. \emph{Subjective video quality assessment methods for multimedia applications}.
     \end{itemize}
 \end{frame}
 

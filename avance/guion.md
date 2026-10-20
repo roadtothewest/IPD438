@@ -35,9 +35,9 @@ Meta: **13 min**. Una idea por diapositiva y siempre de vuelta al objetivo. Las 
 
 **8. Problema.** Hoy hay dos caminos: pedir un intra al codificador (lazo) o mandar intra siempre (se paga con la red sana). FrameTrace mostró que refrescar seguido salva calidad (72,6 contra 55,7 VMAF), pero cuesta. La anomalía: AGiLE ya deja I-headers en el edge y los descarta justo para quien perdió paquetes. Lee la idea fuerte, despacio.
 
-**9. Cómo lo medimos.** Cuatro números: cuánto dura el daño, qué tan feo se ve (VMAF), cuánto se congela (FRR) y cuánto cuesta en bits. **VMAF**: compara cada frame recibido con el original y predice la nota que le pondría una persona, de 0 a 100. Por eso necesitamos un original limpio: un video de prueba sin comprimir que entra al codificador.
+**9. Cómo lo medimos.** La referencia es el mismo stream decodificado sin pérdidas: la integridad original. Dos comparaciones por frame. **Temporal:** las diferencias entre frames consecutivos del video recibido deben parecerse a las de la referencia; un congelamiento o un salto se notan de inmediato. Es la misma base que la información temporal (TI) de ITU-T P.910 y que la parte temporal de ST-RRED. **De imagen:** PSNR de cada frame contra la referencia, porque un error que se queda quieto no cambia las diferencias, pero sí la imagen. Además: cuántos frames dura, cuánto se congela (FRR) y cuántos bits extra cuesta.
 
-**10. Resultados.** Reproducir la caída de VMAF al entrar por un I-header (Fig. 12 de AGiLE), ahora en H.264. Producir: con la misma pérdida, comparar GoP 90 solo, GoP corto, y GoP 90 con I-header cada 5 P. Lee el impacto esperado.
+**10. Resultados.** Reproducir la degradación al entrar por un I-header (Fig. 12 de AGiLE), ahora en H.264. Producir: con la misma pérdida, comparar GoP 90 solo, GoP corto, y GoP 90 con I-header cada 5 P. Lee el impacto esperado.
 
 **11. Referencias.** "Las principales son AGiLE y keyframe injection."
 
@@ -50,7 +50,8 @@ Meta: **13 min**. Una idea por diapositiva y siempre de vuelta al objetivo. Las 
 - **¿En qué se diferencia de keyframe injection?** Ellos usan un flujo aparte y el reproductor pide el keyframe. Aquí va dentro del stream y decide el edge.
 - **¿No le das más trabajo al codificador?** No más que AGiLE, porque reutilizamos sus I-headers. Ojo: con un I-header cada 5 P, la subida al edge lleva bastante más bits; es el costo que vamos a medir.
 - **¿Cómo sabe el edge quién perdió?** SRT: el emisor sabe qué paquetes descartó para cada espectador.
-- **¿Qué es VMAF?** Una métrica de Netflix que compara contra el original y predice la nota que daría una persona (0–100).
+- **¿Qué es VMAF?** Una métrica de Netflix que compara contra el original y predice la nota que daría una persona (0–100). La usan AGiLE, FrameTrace y keyframe injection; nosotros medimos integridad contra la decodificación sin pérdidas.
+- **¿Por qué no solo diferencias entre frames?** Porque un error que se queda quieto deja las diferencias iguales a las de la referencia, aunque la imagen esté mal. Por eso va también el PSNR.
 
 ## Uso de la tecnología
 

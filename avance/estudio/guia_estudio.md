@@ -200,7 +200,9 @@ B. Denizer, L. Winkel, O. Landsiedel. EMS '25, ACM SIGCOMM **2025**, pp. 31–36
 - Que un espectador que pierde paquetes recupere la imagen en el próximo I-header y no en el próximo intra. Ejemplo: GoP 90 a 30 fps → hasta 3 s de daño; con un I-header cada 5 P → ~0,2 s. Sin lazo al codificador y con el ancho de banda de un GoP largo en la última milla.
 - Costo a medir: un I-header cada 5 P sube bastante los bits del ingest (codificador → edge). Cada cuántos P va un I-header es la variable a barrer.
 - Meta (tu apunte): reducir la duración de los artefactos al mismo ancho de banda en el último salto que un GoP largo, cerca de un GoP corto sin su costo permanente.
-- Métricas:
+- Métricas (referencia: el mismo stream decodificado sin pérdidas, la integridad original):
+  - **Integridad temporal**: por cada frame, la diferencia con el frame anterior del video recibido se compara con la misma diferencia en la referencia. Detecta congelamientos y saltos. Base: información temporal (TI) de ITU-T P.910 y la parte temporal de ST-RRED (Soundararajan y Bovik, IEEE TCSVT 2013).
+  - **Integridad de imagen**: PSNR de cada frame contra la referencia. Hace falta porque un error que se queda quieto no cambia las diferencias entre frames.
   - **Duración**: frames desde la pérdida hasta la imagen limpia.
   - **Severidad**: VMAF (o PSNR) por frame contra la referencia. **VMAF** (*Video Multimethod Assessment Fusion*, Netflix 2016): compara cada frame con el original y predice la nota que daría una persona, de 0 a 100; combina fidelidad visual, pérdida de detalle y movimiento, con un modelo entrenado con notas de personas. **PSNR**: relación señal a ruido, en dB.
   - **Congelamiento**: FRR o duración de stalls. Ocultar ≠ íntegro.
