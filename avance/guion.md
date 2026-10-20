@@ -29,7 +29,7 @@ Meta: **13 min**. Primero cómo funciona el video; después el punto de quiebre;
 
 **4. Cómo se reconstruye.** El decodificador lee la configuración y decodifica el intra solo. Para cada P, por cada macrobloque, copia un bloque del frame anterior desde donde indica el vector de movimiento y le suma una pequeña corrección. Si el frame anterior está dañado, la copia también lo está. Lo que se pierde es un paquete SRT: el slice se daña desde ese punto hasta su final. Si cada slice es una fila de macrobloques, sabemos exactamente en qué frame y en qué fila quedó el daño.
 
-**5. Las NAL que usamos.** Cinco tipos: configuración (SPS/PPS), IDR, slice normal (los P y el I-header), SEI y el delimitador de frame. La SEI es la clave: de tipo 5 transporta el I-header, y de tipo 6 le permite al decodificador retomar desde un intra que no es IDR.
+**5. Las NAL que usamos.** Cuatro tipos: configuración (SPS/PPS), IDR, slice normal y SEI, que son datos extra que el decodificador puede ignorar. Señala la figura: el I-header es un slice normal (tipo 1), pero hacia el edge viaja escondido dentro de una SEI, junto al P. Al espectador sano, el edge le quita la SEI. Al que perdió paquetes le entrega el I-header en lugar del P, junto con otra SEI, el recovery point, que le dice al decodificador que puede retomar desde ahí.
 
 **6. Problema y punto de quiebre.** El problema: una pérdida se arrastra hasta el próximo intra. Señala la figura, con la misma pérdida en las cuatro filas: con GoP 30 el daño dura medio segundo y con GoP 90, casi dos. Con un I-header cada 5 P, en ambos casos dura dos frames y después queda solo una deriva leve. "Ese es el punto de quiebre: recuperarse temprano sin pedirle nada al codificador."
 
@@ -56,6 +56,8 @@ Meta: **13 min**. Primero cómo funciona el video; después el punto de quiebre;
 - **¿Qué es un PLI?** *Picture Loss Indication*: un mensaje del receptor al emisor que dice "perdí imagen". El codificador responde mandando un intra. Es el lazo cerrado que queremos evitar.
 - **¿En qué se diferencia de keyframe injection?** Ellos usan un flujo aparte y el reproductor pide el keyframe. Aquí va dentro del stream y decide el edge.
 - **¿El modo B no es un lazo?** Sí, pero es un aviso del edge para activar un modo, no un pedido por cada pérdida y por cada espectador. El modo A no tiene lazo.
+- **¿Por qué el I-header es tipo 1 y no IDR?** Porque un IDR reinicia el decodificador, y los P que vienen después ya no calzarían.
+- **¿Por qué el I-header deja una deriva leve, si es un intra?** Porque el codificador calculó los P siguientes sobre el P original, no sobre el I-header. La compresión no es exacta: el P y el I-header son dos versiones de la misma imagen que difieren un poco, y esa diferencia se arrastra hasta el próximo intra. AGiLE la midió: −1,1 VMAF. Para eliminarla, el codificador tendría que usar el I-header como referencia, y entonces sería un intra normal que pagan todos.
 - **¿Por qué no solo diferencias entre frames?** Porque un error que se queda quieto deja las diferencias iguales a las de la referencia, aunque la imagen esté mal. Por eso va también el PSNR.
 
 ## Uso de la tecnología

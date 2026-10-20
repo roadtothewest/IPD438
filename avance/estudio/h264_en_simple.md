@@ -8,8 +8,8 @@ Para estudiar, no para la presentación. Cada pregunta tiene primero la respuest
 
 ```
 imagen ─► macrobloques ─► slice ─► NAL ─► access unit ─► PES ─► paquetes TS ─► paquete SRT ─► UDP
-          (16×16 px)      (trozo    (caja    (todas las     (le pone  (188 B c/u)   (7 TS =
-                          de        de red)  NAL de un      la hora)               1316 B)
+          (16×16 px)      (trozo    (caja    (todas las     (marca de (188 B c/u)   (7 TS =
+                          de        de red)  NAL de un      tiempo)                1316 B)
                           imagen)            frame)
 ```
 
@@ -19,7 +19,7 @@ imagen ─► macrobloques ─► slice ─► NAL ─► access unit ─► PES
 | **Slice** | Un grupo de macrobloques seguidos, con una cabecera. Se decodifica solo. | Un frame tiene uno o más slices. En el STM32N6 se elige con `sliceSize`. |
 | **NAL** | La "caja" en que H.264 entrega datos a la red. | **Una NAL por slice, no por macrobloque.** También hay NAL que no son imagen: SPS, PPS y SEI. |
 | **Access unit** | Todas las NAL de un frame. | Con un slice por frame, access unit ≈ frame. |
-| **PES** | Envoltorio del estándar MPEG-TS que le agrega a cada frame su **hora**: cuándo decodificarlo (DTS) y cuándo mostrarlo (PTS). | **Aquí entra el PES:** un PES por frame, después del access unit. |
+| **PES** | Envoltorio del estándar MPEG-TS que le agrega a cada frame su **marca de tiempo** (ticks de 90 kHz, no hora del reloj): cuándo decodificarlo (DTS) y cuándo mostrarlo (PTS). | **Aquí entra el PES:** un PES por frame, después del access unit. |
 | **Paquete TS** | El PES se corta en paquetes de 188 bytes. | Cada uno trae un contador de 4 bits: si salta, se perdió algo. |
 | **Paquete SRT** | 7 paquetes TS = 1316 bytes. SRT los manda sobre UDP. | SRT agrega retransmisión y plazo de entrega. |
 
@@ -68,6 +68,8 @@ Solo dos:
 1. **Tipo 5, `user_data_unregistered`:** para transportar el I-header dentro del stream.
 2. **Tipo 6, `recovery_point`:** para que el decodificador acepte empezar desde un I que no es IDR.
 
+**Ojo con los números:** el 5 y el 6 de aquí son el tipo de **mensaje** dentro de la SEI, no el tipo de NAL. La SEI misma es una NAL tipo 6, y el I-header que lleva adentro es un slice tipo 1 (intra sin reinicio). Es un sobre (la SEI) con una carta adentro (el I-header): el edge abre el sobre solo para quien perdió paquetes y le entrega la carta en lugar del P.
+
 ## 7. ¿El STM32N6 lo permite? (revisado en su API oficial)
 
 Fuente: `Middlewares/Third_Party/VideoEncoder/inc/h264encapi.h` y `source/h264/H264EncApi.c` del repositorio [STM32CubeN6](https://github.com/STMicroelectronics/STM32CubeN6). El codificador es de VeriSilicon.
@@ -85,3 +87,9 @@ Fuente: `Middlewares/Third_Party/VideoEncoder/inc/h264encapi.h` y `source/h264/H
 **Pendientes:**
 1. **Numeración:** el I-header debe llevar el número de frame (`frame_num`) del P que reemplaza. Si sale de una segunda instancia, su número no calza. Probablemente hay que reescribir ese campo de la cabecera del slice; es de largo fijo, así que no hay que mover bits.
 2. **Rendimiento:** el datasheet dice 1080p15 y 720p30; otras fuentes dicen 1080p30. Con doble codificación conviene 720p.
+
+## 8. ¿Por qué el I-header deja una deriva leve?
+
+**Porque los P que vienen después se calcularon sobre el P, no sobre el I-header.** La compresión no es exacta: el P y el I-header son dos versiones de la misma imagen que difieren un poco. Cada P siguiente dice "copia del anterior y corrige"; si el anterior es el I-header, la copia parte de una imagen un poco distinta, y ese error se arrastra hasta el próximo intra real.
+
+Es leve porque las dos versiones son buenas: AGiLE mide −1,1 VMAF y keyframe injection, menos de 0,94. Un intra del GoP no deja deriva porque el codificador sí calcula los P siguientes sobre él. Si hiciera lo mismo con el I-header, sería un intra normal que pagan todos, o sea, un GoP corto.

@@ -80,6 +80,7 @@ Prioridad para mañana: I.i, I.ii, I.iii, I.iv, II (AGiLE), SRT, III. El resto, 
 **Si preguntan**
 - **payloadType 5**, `user_data_unregistered`: datos arbitrarios identificados por un UUID. Es donde **nosotros** pondríamos el I-header. AGiLE solo dice "SEI"; el tipo es decisión nuestra.
 - **payloadType 6**, `recovery_point`: le dice al decodificador que desde ese frame puede arrancar y obtener imagen correcta, **aunque no sea IDR**. Es el que "engaña" al decodificador (tu apunte). Algunos decodificadores no arrancan desde un I no-IDR sin él.
+- **Ojo con los números:** el 5 y el 6 son tipos de **mensaje** SEI, no tipos de NAL (NAL 5 = IDR, NAL 6 = SEI). El I-header es un slice tipo 1 que viaja dentro de la SEI hasta el edge.
 
 **Autoevaluación:** ¿qué tipo de SEI lleva el I-header y cuál permite arrancar desde él?
 

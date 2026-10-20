@@ -142,7 +142,7 @@
 % 5. LAS NAL QUE USAMOS
 \begin{frame}{Las NAL que Usamos}
     \centering
-    \renewcommand{\arraystretch}{1.3}
+    \renewcommand{\arraystretch}{1.25}
     \small
     \begin{tabular}{c l l}
         \toprule
@@ -151,17 +151,27 @@
         7 / 8 & SPS / PPS & Configuración del video; van antes de cada IDR. \\
         5 & Slice IDR & Intra que reinicia el decodificador. \\
         1 & Slice no-IDR & Los P, y el I-header (intra sin reinicio). \\
-        6 & SEI\footnote{SEI: Supplemental Enhancement Information. El decodificador la puede ignorar.} & Datos extra dentro del stream. \\
-        9 & AUD & Marca dónde empieza cada frame. \\
+        6 & SEI\footnote{SEI: Supplemental Enhancement Information.} & Datos extra; el decodificador los puede ignorar. \\
         \bottomrule
     \end{tabular}
 
-    \vspace{0.5cm}
-    \raggedright
-    \begin{itemize}
-        \item \textbf{SEI tipo 5 (datos de usuario):} transporta el I-header.
-        \item \textbf{SEI tipo 6 (recovery point):} le dice al decodificador que puede retomar desde ese intra aunque no sea IDR.
-    \end{itemize}
+    \vspace{0.45cm}
+    % El I-header (tipo 1) viaja dentro de una SEI (tipo 6) solo hasta el edge
+    \begin{tikzpicture}[font=\footnotesize,
+        caja/.style={rectangle, draw=SentricaBlue, fill=gray!10, rounded corners=2pt, minimum height=0.55cm, inner sep=2pt},
+        ihdr/.style={caja, fill=SentricaBlue!15, font=\footnotesize\bfseries}]
+        \node[anchor=east] at (-0.15, 0) {Codificador $\to$ edge};
+        \node[anchor=east] at (-0.15, -0.8) {Edge $\to$ espectador sano};
+        \node[anchor=east] at (-0.15, -1.6) {Edge $\to$ espectador con pérdida};
+        \draw[SentricaBlue, fill=white, rounded corners=2pt] (0, -0.3) rectangle (4.4, 0.3);
+        \node[anchor=west] at (0.05, 0) {SEI (6)};
+        \node[ihdr, minimum width=2.7cm] at (2.95, 0) {I-header (1)};
+        \node[caja, minimum width=2.5cm] at (5.85, 0) {P (1)};
+        \node[caja, minimum width=2.5cm] at (5.85, -0.8) {P (1)};
+        \node[caja, minimum width=4.4cm] at (2.2, -1.6) {SEI (6): recovery point\footnotemark};
+        \node[ihdr, minimum width=2.5cm] at (5.85, -1.6) {I-header (1)};
+    \end{tikzpicture}
+    \footnotetext{Recovery point: el decodificador puede retomar desde ese intra aunque no sea IDR.}
 \end{frame}
 
 % 6. PROBLEMA Y PUNTO DE QUIEBRE
