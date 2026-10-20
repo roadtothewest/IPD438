@@ -25,9 +25,9 @@ Meta: **13 min**. Primero cómo funciona el video; después el punto de quiebre;
 
 **2. Codificación.** El I es una foto completa; el P es "lo que cambió" respecto del anterior; el IDR es un I que además reinicia el decodificador. Señala la figura: con GoP 30 hay un intra por segundo; con GoP 90, uno cada 3 segundos. Un GoP largo gasta menos, pero deja pocos puntos de partida.
 
-**3. De la imagen a la red.** Recorre la cadena. La imagen se divide en macrobloques de 16×16, que forman slices; cada slice va en **una** NAL. El PES junta todas las NAL de un frame y les pone la hora. El TS lo corta en paquetes de 188 bytes, y SRT lleva 7 de esos paquetes dentro de cada datagrama UDP, con número de secuencia y hora.
+**3. De la imagen a la red.** Recorre la cadena. La imagen se divide en macrobloques de 16×16, que forman slices; cada slice va en **una** NAL. El PES junta todas las NAL de un frame y les pone una marca de tiempo. El TS lo corta en paquetes de 188 bytes, y SRT lleva 7 de esos paquetes dentro de cada datagrama UDP, con número de secuencia y marca de tiempo.
 
-**4. Cómo se reconstruye.** El decodificador lee la configuración, decodifica el intra solo y arma cada P sobre el anterior. Lo que se pierde es un paquete SRT: el slice se daña desde ese punto hasta su final. Si cada slice es una fila de macrobloques, sabemos exactamente en qué frame y en qué fila quedó el daño.
+**4. Cómo se reconstruye.** El decodificador lee la configuración y decodifica el intra solo. Para cada P, por cada macrobloque, copia un bloque del frame anterior desde donde indica el vector de movimiento y le suma una pequeña corrección. Si el frame anterior está dañado, la copia también lo está. Lo que se pierde es un paquete SRT: el slice se daña desde ese punto hasta su final. Si cada slice es una fila de macrobloques, sabemos exactamente en qué frame y en qué fila quedó el daño.
 
 **5. Las NAL que usamos.** Cinco tipos: configuración (SPS/PPS), IDR, slice normal (los P y el I-header), SEI y el delimitador de frame. La SEI es la clave: de tipo 5 transporta el I-header, y de tipo 6 le permite al decodificador retomar desde un intra que no es IDR.
 
@@ -39,7 +39,7 @@ Meta: **13 min**. Primero cómo funciona el video; después el punto de quiebre;
 
 **9. Keyframe injection.** "Hannes Mareen y Glenn Van Wallendael, de la Universidad de Gante, resolvieron algo parecido": un flujo aparte solo de keyframes, que pide quien entra o pierde paquetes. "Nos respaldan: ya probaron que un keyframe extra repara la pérdida. La diferencia: no usamos un flujo aparte y el reproductor no pide nada."
 
-**10. Topología.** El codificador (STM32N6) manda los P y los I-headers en SEI al edge, que guarda el último. Dos modos a evaluar: A, el I-header viaja siempre y el edge lo reenvía solo a quien perdió; B, el edge detecta la pérdida y recién ahí activa el flujo de I-headers. SRT nos dice qué paquete se perdió y a qué hora, o sea, en qué frame y en qué slice.
+**10. Topología.** El codificador (STM32N6) manda los P y los I-headers en SEI al edge, que guarda el último. Dos modos a evaluar: A, el I-header viaja siempre y el edge lo reenvía solo a quien perdió; B, el edge detecta la pérdida y recién ahí activa el flujo de I-headers. SRT nos dice qué paquete se perdió y con qué marca de tiempo, o sea, en qué frame y en qué slice.
 
 **11. Cómo lo medimos.** La referencia es el mismo stream decodificado sin pérdidas. Medimos si las diferencias entre frames se parecen a las de la referencia (integridad temporal), el PSNR de cada frame (integridad de imagen), cuántos frames dura el daño, cuánto se congela y cuántos bits cuesta.
 

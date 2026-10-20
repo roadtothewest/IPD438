@@ -114,7 +114,7 @@
         \path [line] (ts) -- (srt);
         \path [line] (srt) -- (udp);
         \node [below=0.15cm of nal, font=\footnotesize, text=SentricaBlue] {una por slice};
-        \node [below=0.15cm of pes, font=\footnotesize, text=SentricaBlue] {un frame + hora};
+        \node [below=0.15cm of pes, font=\footnotesize, text=SentricaBlue] {un frame + tiempo};
     \end{tikzpicture}
     }
 
@@ -122,17 +122,18 @@
     \raggedright
     \begin{itemize}
         \item \textbf{Una NAL\footnote{NAL: Network Abstraction Layer, la unidad que H.264 entrega a la red.} por slice}, no por macrobloque.
-        \item \textbf{PES\footnote{PES: Packetized Elementary Stream.}:} encabezado con la hora del frame + todas sus NAL.
+        \item \textbf{PES\footnote{PES: Packetized Elementary Stream. Su marca de tiempo (PTS) cuenta ticks de 90 kHz desde el inicio del stream; no es hora del reloj.}:} encabezado con la marca de tiempo del frame + todas sus NAL.
         \item \textbf{TS\footnote{TS: Transport Stream, el contenedor de MPEG.}:} corta el PES en paquetes de 188 B.
-        \item \textbf{SRT va dentro de UDP:} 7 TS por paquete, cada uno con número de secuencia y hora.
+        \item \textbf{SRT va dentro de UDP:} 7 TS por paquete, cada uno con número de secuencia y marca de tiempo.
     \end{itemize}
 \end{frame}
 
 % 4. CÓMO SE RECONSTRUYE
 \begin{frame}{Cómo se Reconstruye el Video}
     \begin{itemize}
-        \item \textbf{El decodificador:} lee la configuración (SPS/PPS), decodifica el intra solo, y arma cada P con el frame anterior + movimiento + diferencia.
-        \item \textbf{Lo muestra a su hora:} la que trae el PES.
+        \item \textbf{El decodificador:} lee la configuración (SPS/PPS) y decodifica el intra solo.
+        \item \textbf{Cada P:} por cada macrobloque, copia un bloque del frame anterior (donde indica el vector de movimiento) y le suma una pequeña corrección.
+        \item \textbf{Lo muestra en su momento:} según la marca de tiempo del PES.
         \item \textbf{Lo que se pierde es un paquete SRT} (7 TS): el slice se daña desde ese punto hasta su final; los macrobloques anteriores se salvan.
         \item \textbf{Con un slice por fila de macrobloques}, sabemos en qué frame (tiempo) y en qué fila (espacio) está el daño.
     \end{itemize}
@@ -252,7 +253,7 @@
     \begin{itemize}
         \item \textbf{Modo A, siempre:} I-header cada 5 P; el edge lo reenvía solo a quien perdió.
         \item \textbf{Modo B, a pedido:} el edge detecta pérdida y activa el flujo de I-headers\footnote{Ahorra subida con red sana, pero agrega un aviso del edge al codificador.}.
-        \item \textbf{SRT\footnote{SRT: Secure Reliable Transport, protocolo abierto sobre UDP para video en vivo [9].}:} secuencia y hora en cada paquete $\rightarrow$ sabemos en qué frame y en qué slice se perdió.
+        \item \textbf{SRT\footnote{SRT: Secure Reliable Transport, protocolo abierto sobre UDP para video en vivo [9].}:} secuencia y marca de tiempo en cada paquete $\rightarrow$ sabemos en qué frame y en qué slice se perdió.
     \end{itemize}
 \end{frame}
 
