@@ -8,6 +8,7 @@
 \usepackage{helvet}
 \usepackage{booktabs}
 \usepackage{times}
+\usepackage{amssymb}
 
 % --- TEMA MINIMALISTA ---
 \usetheme{default}
@@ -18,6 +19,8 @@
 \AtBeginEnvironment{frame}{\setcounter{footnote}{0}}
 
 \definecolor{SentricaBlue}{RGB}{0, 50, 100}
+\definecolor{Rojo}{RGB}{170, 30, 30}
+\definecolor{Suave}{RGB}{215, 218, 226}
 \setbeamercolor{title}{fg=SentricaBlue}
 \setbeamercolor{frametitle}{fg=SentricaBlue}
 \setbeamercolor{structure}{fg=SentricaBlue}
@@ -27,6 +30,30 @@
 \tikzstyle{highlightblock} = [rectangle, draw=SentricaBlue, fill=SentricaBlue!15, text width=6.5em, text centered, rounded corners, minimum height=3em, font=\small\bfseries, thick]
 \tikzstyle{line} = [draw, -Latex, thick, SentricaBlue]
 \tikzstyle{cloud} = [draw=gray, ellipse, fill=white, text width=5.5em, text centered, minimum height=2.5em, font=\scriptsize]
+
+% --- SECUENCIA DE FRAMES (91 frames = 3 s a 30 fps) ---
+% #1 y, #2 GoP, #3 con I-header cada 5 P (1/0), #4 frame perdido (-1 = sin pérdida), #5 etiqueta
+\newcommand{\secuencia}[5]{%
+  \node[anchor=east, font=\scriptsize] at (-0.2, #1+0.17) {#5};
+  \pgfmathtruncatemacro{\proxI}{#4 < 0 ? -1 : (floor(#4/#2)+1)*#2}%
+  \pgfmathtruncatemacro{\proxH}{#4 < 0 ? -1 : (#3 == 1 ? min((floor(#4/6)+1)*6, \proxI) : \proxI)}%
+  \foreach \i in {0,...,90}{%
+    \pgfmathtruncatemacro{\esI}{mod(\i,#2) == 0 ? 1 : 0}%
+    \pgfmathtruncatemacro{\estado}{\esI == 1 ? 1 : ((#4 >= 0 && \i >= #4 && \i < \proxH) ? 2 : ((#4 >= 0 && \i >= \proxH && \i < \proxI) ? 3 : 0))}%
+    \ifcase\estado \def\col{Suave}\or \def\col{SentricaBlue}\or \def\col{Rojo}\or \def\col{Rojo!25}\fi
+    \fill[\col] (\i*0.115, #1) rectangle ++(0.1, 0.34);
+  }%
+  \ifnum#3=1
+    \foreach \k in {6,12,...,90}{%
+      \pgfmathtruncatemacro{\esI}{mod(\k,#2) == 0 ? 1 : 0}%
+      \ifnum\esI=0 \fill[SentricaBlue] (\k*0.115+0.05, #1+0.42) circle (0.04);\fi
+    }%
+  \fi
+  \ifnum#4>-1 \node[font=\tiny] at (#4*0.115+0.05, #1+0.5) {$\blacktriangledown$};\fi
+}
+\newcommand{\ejetiempo}[1]{%
+  \foreach \s/\f in {0/0, 1/30, 2/60, 3/90}{\node[font=\tiny, text=gray] at (\f*0.115+0.05, #1) {\s\,s};}
+}
 
 % --- METADATOS ---
 \title{\textbf{Recuperación de Video bajo Pérdida}}
@@ -42,58 +69,29 @@
     \titlepage
 \end{frame}
 
-% 2. OBJETIVO
-\begin{frame}{Objetivo}
-    \begin{itemize}
-        \item \textbf{Objetivo:} que un espectador que pierde paquetes recupere la imagen en el próximo I-header\footnote{I-header: la misma imagen codificada además como intra, dentro del stream (AGiLE [1]).}, y no en el próximo intra.
-        \item \textbf{Ejemplo:} con GoP\footnote{GoP: grupo de frames entre dos intra.} de 90 a 30 fps, el daño dura hasta 3 s. Con un I-header cada 5 P, $\sim$0,2 s.
-        \item \textbf{Sin lazo al codificador:} decide el edge\footnote{Edge: servidor de distribución más cercano al espectador.}; el codificador no recibe pedidos.
-        \item \textbf{Sin costo con red sana:} en la última milla, el ancho de banda de un GoP largo.
-    \end{itemize}
-\end{frame}
-
-% 3. TOPOLOGÍA
-\begin{frame}{Topología}
-    \centering
-    \vspace{0.2cm}
-    \resizebox{0.95\textwidth}{!}{%
-    \begin{tikzpicture}[auto, thick]
-        \node [cloud] (src) at (0, 0) {\textbf{Video}\\cámara o y4m};
-        \node [block] (enc) at (4.2, 0) {\textbf{Codificador}\\STM32N6\\H.264};
-        \node [highlightblock] (edge) at (10.4, 0) {\textbf{Edge}\\guarda el último I-header};
-        \node [block] (v1) at (16.2, 1.3) {Espectador\\sin pérdida};
-        \node [block, draw=red!70!black] (v2) at (16.2, -1.3) {Espectador\\con pérdida};
-
-        \path [line] (src) -- (enc);
-        \path [line] (enc) -- node [above, font=\footnotesize, align=center] {P + I-header\\en SEI} node [below, font=\footnotesize] {ingest} (edge);
-        \path [line] (edge.east) -- (v1.west);
-        \path [line] (edge.east) -- (v2.west);
-        \node [font=\footnotesize, anchor=south east] at (13.3, 0.8) {solo P};
-        \node [font=\footnotesize, anchor=north east] at (12.9, -0.95) {P + I-header};
-        \node [font=\footnotesize, text=SentricaBlue] at (13.3, -2.4) {SRT: última milla, con pérdida};
-    \end{tikzpicture}
-    }
-
-    \vspace{0.5cm}
-    \raggedright
-    \begin{itemize}
-        \item \textbf{Ingest:} P normales, y un I-header en SEI cada 5 P.
-        \item \textbf{Edge:} guarda el último I-header y se lo entrega a quien perdió paquetes.
-        \item \textbf{Última milla: SRT}\footnote{SRT: Secure Reliable Transport, protocolo abierto sobre UDP para video en vivo [9].} retransmite dentro de un plazo fijo; lo que no alcanza se descarta, y el edge sabe a quién le faltó.
-    \end{itemize}
-\end{frame}
-
-% 4. CODIFICACIÓN H.264
+% 2. CODIFICACIÓN
 \begin{frame}{Codificación H.264: I, P e IDR}
     \begin{itemize}
         \item \textbf{Intra (I):} imagen completa. Se decodifica sola; es grande.
         \item \textbf{Predicho (P):} solo lo que cambió respecto del frame anterior. Es pequeño, pero depende del anterior.
         \item \textbf{IDR:} un intra que además reinicia el decodificador.
-        \item \textbf{Perder un intra es grave:} cada P se arma sobre el anterior, así que el error se arrastra hasta el próximo intra. Con GoP 90, hasta 3 s.
+        \item \textbf{GoP\footnote{GoP: Group of Pictures, los frames entre dos intra.}:} cada cuántos frames va un intra.
     \end{itemize}
+
+    \vspace{0.3cm}
+    \centering
+    \begin{tikzpicture}
+        \secuencia{0.6}{30}{0}{-1}{GoP 30}
+        \secuencia{0}{90}{0}{-1}{GoP 90}
+        \ejetiempo{-0.25}
+        \fill[SentricaBlue] (11.0, 0.6) rectangle ++(0.2, 0.34); \node[anchor=west, font=\scriptsize] at (11.25, 0.77) {intra};
+        \fill[Suave] (11.0, 0) rectangle ++(0.2, 0.34); \node[anchor=west, font=\scriptsize] at (11.25, 0.17) {P};
+    \end{tikzpicture}
+
+    {\scriptsize 30 fps: GoP 30 = un intra por segundo; GoP 90 = uno cada 3 s.}
 \end{frame}
 
-% 5. DE LA IMAGEN A LA RED
+% 3. DE LA IMAGEN A LA RED
 \begin{frame}{De la Imagen a la Red}
     \centering
     \vspace{0.2cm}
@@ -116,67 +114,160 @@
         \path [line] (ts) -- (srt);
         \path [line] (srt) -- (udp);
         \node [below=0.15cm of nal, font=\footnotesize, text=SentricaBlue] {una por slice};
-        \node [below=0.15cm of pes, font=\footnotesize, text=SentricaBlue] {pone la hora};
+        \node [below=0.15cm of pes, font=\footnotesize, text=SentricaBlue] {un frame + hora};
     \end{tikzpicture}
     }
+
+    \vspace{0.4cm}
+    \raggedright
+    \begin{itemize}
+        \item \textbf{Una NAL\footnote{NAL: Network Abstraction Layer, la unidad que H.264 entrega a la red.} por slice}, no por macrobloque.
+        \item \textbf{PES\footnote{PES: Packetized Elementary Stream.}:} encabezado con la hora del frame + todas sus NAL.
+        \item \textbf{TS\footnote{TS: Transport Stream, el contenedor de MPEG.}:} corta el PES en paquetes de 188 B.
+        \item \textbf{SRT va dentro de UDP:} 7 TS por paquete, cada uno con número de secuencia y hora.
+    \end{itemize}
+\end{frame}
+
+% 4. CÓMO SE RECONSTRUYE
+\begin{frame}{Cómo se Reconstruye el Video}
+    \begin{itemize}
+        \item \textbf{El decodificador:} lee la configuración (SPS/PPS), decodifica el intra solo, y arma cada P con el frame anterior + movimiento + diferencia.
+        \item \textbf{Lo muestra a su hora:} la que trae el PES.
+        \item \textbf{Lo que se pierde es un paquete SRT} (7 TS): el slice se daña desde ese punto hasta su final; los macrobloques anteriores se salvan.
+        \item \textbf{Con un slice por fila de macrobloques}, sabemos en qué frame (tiempo) y en qué fila (espacio) está el daño.
+    \end{itemize}
+\end{frame}
+
+% 5. LAS NAL QUE USAMOS
+\begin{frame}{Las NAL que Usamos}
+    \centering
+    \renewcommand{\arraystretch}{1.3}
+    \small
+    \begin{tabular}{c l l}
+        \toprule
+        \textbf{Tipo} & \textbf{NAL} & \textbf{Para qué} \\
+        \midrule
+        7 / 8 & SPS / PPS & Configuración del video; van antes de cada IDR. \\
+        5 & Slice IDR & Intra que reinicia el decodificador. \\
+        1 & Slice no-IDR & Los P, y el I-header (intra sin reinicio). \\
+        6 & SEI\footnote{SEI: Supplemental Enhancement Information. El decodificador la puede ignorar.} & Datos extra dentro del stream. \\
+        9 & AUD & Marca dónde empieza cada frame. \\
+        \bottomrule
+    \end{tabular}
 
     \vspace{0.5cm}
     \raggedright
     \begin{itemize}
-        \item \textbf{Una NAL\footnote{NAL: Network Abstraction Layer, la unidad que H.264 entrega a la red.} por slice}, no por macrobloque.
-        \item \textbf{PES\footnote{PES: Packetized Elementary Stream, del estándar MPEG-TS.}:} le pone la hora a cada frame; después se corta en paquetes TS de 188 B.
-        \item \textbf{También son NAL:} SPS/PPS (configuración del video) y SEI\footnote{SEI: Supplemental Enhancement Information. Datos extra que el decodificador puede ignorar.} (datos extra). Ahí viaja el I-header.
+        \item \textbf{SEI tipo 5 (datos de usuario):} transporta el I-header.
+        \item \textbf{SEI tipo 6 (recovery point):} le dice al decodificador que puede retomar desde ese intra aunque no sea IDR.
     \end{itemize}
 \end{frame}
 
-% 6. ESTADO DEL ARTE: AGILE
+% 6. PROBLEMA Y PUNTO DE QUIEBRE
+\begin{frame}{Problema y Punto de Quiebre}
+    \begin{itemize}
+        \item \textbf{Problema:} una pérdida se arrastra hasta el próximo intra.
+        \item \textbf{Punto de quiebre:} con un I-header\footnote{I-header: la misma imagen codificada además como intra, dentro del stream (AGiLE [1]).} cada 5 P, el daño dura como máximo 5 P, sin pedirle nada al codificador.
+    \end{itemize}
+
+    \vspace{0.15cm}
+    \centering
+    \begin{tikzpicture}
+        \secuencia{1.95}{30}{0}{40}{GoP 30}
+        \secuencia{1.3}{30}{1}{40}{GoP 30 + I-header}
+        \secuencia{0.65}{90}{0}{40}{GoP 90}
+        \secuencia{0}{90}{1}{40}{GoP 90 + I-header}
+        \ejetiempo{-0.25}
+        \begin{scope}[shift={(0, -0.75)}, font=\tiny]
+            \node[anchor=west] at (-2.6, 0) {$\blacktriangledown$ pérdida};
+            \fill[SentricaBlue] (-0.7, -0.08) rectangle ++(0.16, 0.16); \node[anchor=west] at (-0.5, 0) {intra};
+            \fill[SentricaBlue] (0.75, 0) circle (0.05); \node[anchor=west] at (0.85, 0) {I-header};
+            \fill[Rojo] (2.15, -0.08) rectangle ++(0.16, 0.16); \node[anchor=west] at (2.35, 0) {dañado};
+            \fill[Rojo!25] (3.55, -0.08) rectangle ++(0.16, 0.16); \node[anchor=west] at (3.75, 0) {deriva leve hasta el próximo intra};
+        \end{scope}
+    \end{tikzpicture}
+\end{frame}
+
+% 7. OBJETIVO
+\begin{frame}{Objetivo}
+    \begin{itemize}
+        \item \textbf{Objetivo:} que un espectador que pierde paquetes recupere la imagen en el próximo I-header, y no en el próximo intra.
+        \item \textbf{Ejemplo:} con GoP 90 a 30 fps, el daño dura hasta 3 s. Con un I-header cada 5 P, $\sim$0,2 s.
+        \item \textbf{Sin lazo al codificador:} decide el edge\footnote{Edge: servidor de distribución más cercano al espectador.}; el codificador no recibe pedidos.
+        \item \textbf{Sin costo con red sana:} hacia el espectador, el ancho de banda de un GoP largo.
+    \end{itemize}
+\end{frame}
+
+% 8. ESTADO DEL ARTE: AGILE
 \begin{frame}{Estado del Arte: AGiLE [1]}
     \begin{itemize}
-        \item \textbf{Problema que resuelve:} con GoP largo, un espectador nuevo espera el próximo intra para ver algo.
-        \item \textbf{Idea:} un I-header en cada frontera de pseudo-GOP (cada 2 s en el paper), dentro de una SEI del P.
-        \item \textbf{Edge:} se lo entrega solo a espectadores nuevos; al conectado se lo descarta.
-        \item \textbf{Indicadores:} BD-rate\footnote{BD-rate: diferencia de bits a igual calidad.} $-3{,}5$\,\%; datos de ingest $+2{,}8$\,\%; calidad al entrar por un I-header $-1{,}1$ VMAF\footnote{VMAF: calidad percibida de 0 a 100 (Netflix). Es la métrica que usan estos papers.}.
+        \item \textbf{Resuelve:} con GoP largo, un espectador nuevo espera el próximo intra.
+        \item \textbf{Idea:} un I-header cada 2 s, dentro de una SEI del P.
+        \item \textbf{Edge:} lo entrega solo a espectadores nuevos; al conectado se lo descarta.
+        \item \textbf{Indicadores:} BD-rate\footnote{BD-rate: diferencia de bits a igual calidad.} $-3{,}5$\,\%; subida $+2{,}8$\,\%; $-1{,}1$ VMAF\footnote{VMAF: calidad percibida de 0 a 100 (Netflix). Es la métrica que usan estos papers.} al entrar por un I-header.
         \item \textbf{¿Esperamos mejorarlos?} No: reutilizamos sus I-headers para recuperar pérdidas.
     \end{itemize}
-\end{frame}
 
-% 7. ESTADO DEL ARTE: KEYFRAME INJECTION
-\begin{frame}{Estado del Arte: Keyframe Injection [2, 3]}
-    \begin{itemize}
-        \item \textbf{H. Mareen, G. Van Wallendael et al.} Universidad de Gante, 2021--2024.
-        \item \textbf{Qué hacen:} un flujo aparte, solo de keyframes. Quien entra o pierde paquetes pide uno y sigue con el stream normal.
-        \item \textbf{Indicadores:} caída de calidad $<0{,}94$ VMAF (HEVC). Cada keyframe genera un peak de bitrate; en 2023 lo reducen inyectando P en vez de I [4].
-        \item \textbf{Postura:} nos respalda, porque ya probaron que un keyframe extra repara la pérdida.
-        \item \textbf{Diferencia:} sin flujo aparte (el I-header va en SEI) y sin pedido del reproductor (decide el edge).
-    \end{itemize}
-\end{frame}
-
-% 8. PROBLEMA
-\begin{frame}{Problema}
-    \begin{itemize}
-        \item \textbf{Hoy, para cortar el daño:} pedir un intra al codificador (lazo, PLI\footnote{PLI: Picture Loss Indication, el receptor pide un intra.}) o mandar intra siempre (GoP corto, se paga aunque la red esté sana).
-        \item \textbf{FrameTrace [5]:} con 1\,\% de pérdida, GoP 0,5 s da 72,6 VMAF; GoP 2 s, 55,7. Refrescar seguido salva la calidad, pero cuesta.
-        \item \textbf{Anomalía:} AGiLE ya deja I-headers en el edge\ldots\ y los descarta justo para quien perdió paquetes.
-    \end{itemize}
-
-    \vspace{0.6cm}
+    \vspace{0.2cm}
     {\itshape \small \textcolor{SentricaBlue}{
     \textbf{Idea fuerte:} el mecanismo para recuperarse de la pérdida ya está en la red, ya está pagado, y hoy se descarta.
     }\par}
 \end{frame}
 
-% 9. CÓMO LO MEDIMOS
+% 9. ESTADO DEL ARTE: KEYFRAME INJECTION
+\begin{frame}{Estado del Arte: Keyframe Injection [2, 3]}
+    \begin{itemize}
+        \item \textbf{H. Mareen, G. Van Wallendael et al.} Universidad de Gante, 2021--2024.
+        \item \textbf{Qué hacen:} un flujo aparte, solo de keyframes. Quien entra o pierde paquetes pide uno y sigue con el stream normal.
+        \item \textbf{Indicadores:} caída de calidad $<0{,}94$ VMAF. Cada keyframe genera un peak de bitrate; en 2023 lo reducen inyectando P en vez de I [4].
+        \item \textbf{Postura:} nos respalda, porque ya probaron que un keyframe extra repara la pérdida.
+        \item \textbf{Diferencia:} sin flujo aparte (el I-header va en SEI) y sin pedido del reproductor (decide el edge).
+    \end{itemize}
+\end{frame}
+
+% 10. TOPOLOGÍA
+\begin{frame}{Topología}
+    \centering
+    \vspace{0.1cm}
+    \resizebox{0.85\textwidth}{!}{%
+    \begin{tikzpicture}[auto, thick]
+        \node [cloud] (src) at (0, 0) {\textbf{Video}\\cámara o y4m};
+        \node [block] (enc) at (4.2, 0) {\textbf{Codificador}\\STM32N6\\H.264};
+        \node [highlightblock] (edge) at (10.4, 0) {\textbf{Edge}\\guarda el último I-header};
+        \node [block] (v1) at (16.2, 1.3) {Espectador\\sin pérdida};
+        \node [block, draw=red!70!black] (v2) at (16.2, -1.3) {Espectador\\con pérdida};
+
+        \path [line] (src) -- (enc);
+        \path [line] (enc) -- node [above, font=\footnotesize, align=center] {P + I-header\\en SEI} node [below, font=\footnotesize] {subida} (edge);
+        \path [line] (edge.east) -- (v1.west);
+        \path [line] (edge.east) -- (v2.west);
+        \node [font=\footnotesize, anchor=south east] at (13.3, 0.8) {solo P};
+        \node [font=\footnotesize, anchor=north east] at (12.9, -0.95) {P + I-header};
+        \node [font=\footnotesize, text=SentricaBlue] at (13.3, -2.4) {SRT: última milla, con pérdida};
+    \end{tikzpicture}
+    }
+
+    \vspace{0.1cm}
+    \raggedright
+    \begin{itemize}
+        \item \textbf{Modo A, siempre:} I-header cada 5 P; el edge lo reenvía solo a quien perdió.
+        \item \textbf{Modo B, a pedido:} el edge detecta pérdida y activa el flujo de I-headers\footnote{Ahorra subida con red sana, pero agrega un aviso del edge al codificador.}.
+        \item \textbf{SRT\footnote{SRT: Secure Reliable Transport, protocolo abierto sobre UDP para video en vivo [9].}:} secuencia y hora en cada paquete $\rightarrow$ sabemos en qué frame y en qué slice se perdió.
+    \end{itemize}
+\end{frame}
+
+% 11. CÓMO LO MEDIMOS
 \begin{frame}{Cómo lo Medimos}
     \begin{itemize}
         \item \textbf{Referencia:} el mismo stream decodificado sin pérdidas (integridad original).
         \item \textbf{Integridad temporal:} las diferencias entre frames consecutivos deben parecerse a las de la referencia\footnote{Misma base que la información temporal (TI) de ITU-T P.910 [11] y que la parte temporal de ST-RRED [10].}.
         \item \textbf{Integridad de imagen:} PSNR\footnote{PSNR: relación señal a ruido de pico, en dB.} de cada frame contra la referencia.
         \item \textbf{Duración y congelamiento:} frames hasta recuperar la integridad; FRR\footnote{FRR: Frame Render Rate, frames mostrados / frames enviados [5].}.
-        \item \textbf{Costo:} bits extra en el ingest y en la última milla.
+        \item \textbf{Costo:} bits extra hacia el espectador y en la subida (BD-rate).
     \end{itemize}
 \end{frame}
 
-% 10. RESULTADOS A PRODUCIR
+% 12. RESULTADOS A PRODUCIR
 \begin{frame}{Resultados a Producir}
     \textbf{Reproducir}
     \begin{itemize}
@@ -186,22 +277,17 @@
     \vspace{0.2cm}
     \textbf{Producir: misma pérdida en SRT}
     \begin{itemize}
-        \item \textbf{Comparar:}
-        \begin{itemize}
-            \item GoP 90 sin protección.
-            \item GoP corto.
-            \item GoP 90 + I-header cada 5 P.
-        \end{itemize}
+        \item \textbf{Comparar:} GoP 90 \enspace / \enspace GoP 30 \enspace / \enspace GoP 90 + I-header cada 5 P.
         \item \textbf{Variable a barrer:} cada cuántos P va un I-header.
     \end{itemize}
 
     \vspace{0.6cm}
     {\itshape \small \textcolor{SentricaBlue}{
-    \textbf{Impacto esperado:} la recuperación de un GoP corto con el ancho de banda de un GoP 90 en la última milla.
+    \textbf{Impacto esperado:} recuperarse tan rápido como con un GoP corto, gastando hacia el espectador lo mismo que un GoP 90.
     }\par}
 \end{frame}
 
-% 11. REFERENCIAS
+% 13. REFERENCIAS
 \begin{frame}{Referencias}
     \scriptsize
     \begin{itemize}
@@ -219,7 +305,7 @@
     \end{itemize}
 \end{frame}
 
-% 12. CIERRE
+% 14. CIERRE
 \begin{frame}
     \centering
     \Huge \textcolor{SentricaBlue}{\textbf{Gracias por su atención}}

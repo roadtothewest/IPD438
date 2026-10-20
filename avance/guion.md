@@ -1,56 +1,61 @@
 # Guion — presentación de avance IPD438
 
-Meta: **13 min**. Una idea por diapositiva y siempre de vuelta al objetivo. Las siglas están en las notas al pie; dilas una vez en voz alta.
+Meta: **13 min**. Primero cómo funciona el video; después el punto de quiebre; después el estado del arte y cómo lo vamos a hacer. Las siglas están en notas al pie: dilas una vez en voz alta.
 
 | # | Diapositiva | Tiempo |
 |---|---|---|
 | 1 | Portada | 0:15 |
-| 2 | Objetivo | 1:15 |
-| 3 | Topología | 1:30 |
-| 4 | Codificación H.264: I, P e IDR | 1:15 |
-| 5 | De la imagen a la red | 1:30 |
-| 6 | Estado del arte: AGiLE | 1:30 |
-| 7 | Estado del arte: keyframe injection | 1:30 |
-| 8 | Problema | 1:30 |
-| 9 | Cómo lo medimos | 1:15 |
-| 10 | Resultados a producir | 1:00 |
-| 11 | Referencias | 0:10 |
-| 12 | Gracias | — |
+| 2 | Codificación H.264: I, P e IDR | 1:15 |
+| 3 | De la imagen a la red | 1:15 |
+| 4 | Cómo se reconstruye el video | 1:00 |
+| 5 | Las NAL que usamos | 1:00 |
+| 6 | Problema y punto de quiebre | 1:30 |
+| 7 | Objetivo | 0:45 |
+| 8 | Estado del arte: AGiLE | 1:15 |
+| 9 | Estado del arte: keyframe injection | 1:15 |
+| 10 | Topología | 1:15 |
+| 11 | Cómo lo medimos | 1:00 |
+| 12 | Resultados a producir | 0:45 |
+| 13 | Referencias | 0:10 |
+| 14 | Gracias | — |
 
 ---
 
 **1. Portada.** "Voy a mostrar cómo recuperar el video después de una pérdida de paquetes, sin pedirle nada al codificador."
 
-**2. Objetivo.** Lee el primer punto. El ejemplo lo hace concreto: con un GoP de 90 a 30 fps, una pérdida daña hasta 3 segundos; si hay un I-header cada 5 P, el daño dura unos 0,2 s. Todo eso sin lazo al codificador y sin gastar más en la última milla que el GoP largo.
+**2. Codificación.** El I es una foto completa; el P es "lo que cambió" respecto del anterior; el IDR es un I que además reinicia el decodificador. Señala la figura: con GoP 30 hay un intra por segundo; con GoP 90, uno cada 3 segundos. Un GoP largo gasta menos, pero deja pocos puntos de partida.
 
-**3. Topología.** Recorre el dibujo de izquierda a derecha. El video entra al codificador (STM32N6), que manda los P normales y, cada 5 P, un I-header escondido en una SEI. El edge guarda el último I-header. Al espectador sin pérdida le llegan solo los P; al que perdió paquetes, el I-header. La última milla va por SRT: retransmite mientras alcanza y, si no, descarta; por eso el edge sabe a quién le faltó.
+**3. De la imagen a la red.** Recorre la cadena. La imagen se divide en macrobloques de 16×16, que forman slices; cada slice va en **una** NAL. El PES junta todas las NAL de un frame y les pone la hora. El TS lo corta en paquetes de 188 bytes, y SRT lleva 7 de esos paquetes dentro de cada datagrama UDP, con número de secuencia y hora.
 
-**4. Codificación.** El I es una foto completa; el P es "lo que cambió" respecto del anterior. Si se pierde un P, todos los siguientes se arman sobre una imagen mala hasta el próximo intra. Con GoP 90, hasta 3 segundos.
+**4. Cómo se reconstruye.** El decodificador lee la configuración, decodifica el intra solo y arma cada P sobre el anterior. Lo que se pierde es un paquete SRT: el slice se daña desde ese punto hasta su final. Si cada slice es una fila de macrobloques, sabemos exactamente en qué frame y en qué fila quedó el daño.
 
-**5. De la imagen a la red.** Recorre la cadena: la imagen se divide en macrobloques de 16×16, que forman slices; cada slice va en **una** NAL (no hay una NAL por macrobloque). El PES le pone la hora a cada frame y se corta en paquetes TS de 188 bytes, que viajan por SRT sobre UDP. SPS/PPS y SEI también son NAL: en una SEI viaja el I-header.
+**5. Las NAL que usamos.** Cinco tipos: configuración (SPS/PPS), IDR, slice normal (los P y el I-header), SEI y el delimitador de frame. La SEI es la clave: de tipo 5 transporta el I-header, y de tipo 6 le permite al decodificador retomar desde un intra que no es IDR.
 
-**6. AGiLE.** Paper de ByteDance, MMSys 2024. Resuelve otro problema: que un espectador nuevo no espere el próximo intra. Para eso pone I-headers dentro de una SEI, y el edge se los da solo a los nuevos. Sus números: −3,5 % de bits a igual calidad, +2,8 % de datos de subida, −1,1 VMAF al entrar por un I-header. "No buscamos mejorar esos números: reutilizamos sus I-headers para otra cosa."
+**6. Problema y punto de quiebre.** El problema: una pérdida se arrastra hasta el próximo intra. Señala la figura, con la misma pérdida en las cuatro filas: con GoP 30 el daño dura medio segundo y con GoP 90, casi dos. Con un I-header cada 5 P, en ambos casos dura dos frames y después queda solo una deriva leve. "Ese es el punto de quiebre: recuperarse temprano sin pedirle nada al codificador."
 
-**7. Keyframe injection.** "Hannes Mareen y Glenn Van Wallendael, de la Universidad de Gante, resolvieron algo parecido": un flujo aparte solo de keyframes, que pide quien entra o pierde paquetes. La calidad cae menos de 1 punto de VMAF. "Nos respaldan, porque ya probaron que un keyframe extra repara la pérdida. La diferencia: no usamos un flujo aparte, porque el I-header va dentro del stream, y el reproductor no pide nada, porque decide el edge."
+**7. Objetivo.** Lee el objetivo y el ejemplo: de hasta 3 s a unos 0,2 s. Sin lazo al codificador y, con la red sana, el ancho de banda de un GoP largo hacia el espectador.
 
-**8. Problema.** Hoy hay dos caminos: pedir un intra al codificador (lazo) o mandar intra siempre (se paga con la red sana). FrameTrace mostró que refrescar seguido salva calidad (72,6 contra 55,7 VMAF), pero cuesta. La anomalía: AGiLE ya deja I-headers en el edge y los descarta justo para quien perdió paquetes. Lee la idea fuerte, despacio.
+**8. AGiLE.** Paper de ByteDance, MMSys 2024. Usa I-headers en SEI para otra cosa: que un espectador nuevo no espere el próximo intra. El edge se los da solo a los nuevos y al conectado se los descarta. Sus números: −3,5 % de bits a igual calidad, +2,8 % de subida, −1,1 VMAF al entrar por un I-header. Lee la idea fuerte, despacio.
 
-**9. Cómo lo medimos.** La referencia es el mismo stream decodificado sin pérdidas: la integridad original. Dos comparaciones por frame. **Temporal:** las diferencias entre frames consecutivos del video recibido deben parecerse a las de la referencia; un congelamiento o un salto se notan de inmediato. Es la misma base que la información temporal (TI) de ITU-T P.910 y que la parte temporal de ST-RRED. **De imagen:** PSNR de cada frame contra la referencia, porque un error que se queda quieto no cambia las diferencias, pero sí la imagen. Además: cuántos frames dura, cuánto se congela (FRR) y cuántos bits extra cuesta.
+**9. Keyframe injection.** "Hannes Mareen y Glenn Van Wallendael, de la Universidad de Gante, resolvieron algo parecido": un flujo aparte solo de keyframes, que pide quien entra o pierde paquetes. "Nos respaldan: ya probaron que un keyframe extra repara la pérdida. La diferencia: no usamos un flujo aparte y el reproductor no pide nada."
 
-**10. Resultados.** Reproducir la degradación al entrar por un I-header (Fig. 12 de AGiLE), ahora en H.264. Producir: con la misma pérdida, comparar GoP 90 solo, GoP corto, y GoP 90 con I-header cada 5 P. Lee el impacto esperado.
+**10. Topología.** El codificador (STM32N6) manda los P y los I-headers en SEI al edge, que guarda el último. Dos modos a evaluar: A, el I-header viaja siempre y el edge lo reenvía solo a quien perdió; B, el edge detecta la pérdida y recién ahí activa el flujo de I-headers. SRT nos dice qué paquete se perdió y a qué hora, o sea, en qué frame y en qué slice.
 
-**11. Referencias.** "Las principales son AGiLE y keyframe injection."
+**11. Cómo lo medimos.** La referencia es el mismo stream decodificado sin pérdidas. Medimos si las diferencias entre frames se parecen a las de la referencia (integridad temporal), el PSNR de cada frame (integridad de imagen), cuántos frames dura el daño, cuánto se congela y cuántos bits cuesta.
 
-**12. Gracias.** Repite el objetivo en una frase y abre a preguntas.
+**12. Resultados.** Reproducir la degradación al entrar por un I-header (Fig. 12 de AGiLE) en H.264. Producir: GoP 90, GoP 30 y GoP 90 con I-header, con la misma pérdida, barriendo cada cuántos P va el I-header. Lee el impacto esperado.
+
+**13. Referencias.** "Las principales: AGiLE y keyframe injection."
+
+**14. Gracias.** Repite el objetivo en una frase y abre a preguntas.
 
 ---
 
 ## Preguntas probables
 
+- **¿Qué es un PLI?** *Picture Loss Indication*: un mensaje del receptor al emisor que dice "perdí imagen". El codificador responde mandando un intra. Es el lazo cerrado que queremos evitar.
 - **¿En qué se diferencia de keyframe injection?** Ellos usan un flujo aparte y el reproductor pide el keyframe. Aquí va dentro del stream y decide el edge.
-- **¿No le das más trabajo al codificador?** No más que AGiLE, porque reutilizamos sus I-headers. Ojo: con un I-header cada 5 P, la subida al edge lleva bastante más bits; es el costo que vamos a medir.
-- **¿Cómo sabe el edge quién perdió?** SRT: el emisor sabe qué paquetes descartó para cada espectador.
-- **¿Qué es VMAF?** Una métrica de Netflix que compara contra el original y predice la nota que daría una persona (0–100). La usan AGiLE, FrameTrace y keyframe injection; nosotros medimos integridad contra la decodificación sin pérdidas.
+- **¿El modo B no es un lazo?** Sí, pero es un aviso del edge para activar un modo, no un pedido por cada pérdida y por cada espectador. El modo A no tiene lazo.
 - **¿Por qué no solo diferencias entre frames?** Porque un error que se queda quieto deja las diferencias iguales a las de la referencia, aunque la imagen esté mal. Por eso va también el PSNR.
 
 ## Uso de la tecnología
