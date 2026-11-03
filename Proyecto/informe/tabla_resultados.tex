@@ -1,24 +1,25 @@
 \begin{table}[t]
 \centering
-\caption{Frames dañados en 10~s (promedio de 8 semillas), con 2~\% de pérdida (corte medio de 20~ms) y 4~\% de pérdida (cortes de 200 y 600~ms). GoP~90 y $L=120$~ms salvo que se indique. Las dos últimas columnas son del régimen de 200~ms: PSNR promedio contra la fuente (sin pérdida: 36,37~dB con GoP~90) y tasa hacia el espectador con retransmisiones.}
+\caption{Frames dañados en 10~s (promedio de 8 semillas), con 2~\% de pérdida (corte medio de 20~ms) y 4~\% de pérdida (cortes de 200 y 600~ms). GoP~90 y $L=120$~ms salvo que se indique. Las dos últimas columnas son del régimen de 200~ms: PSNR promedio contra la fuente (sin pérdida: 36,37~dB con GoP~90) y tasa hacia el espectador, incluidas las retransmisiones.}
 \label{tab:res}
 \footnotesize
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lrrrrr@{}}
 \toprule
  & \multicolumn{3}{c}{Frames dañados, $D=$} & \multicolumn{2}{c}{$D=200$ ms} \\ \cmidrule(lr){2-4}\cmidrule(l){5-6}
-Escenario & 20 ms & 200 ms & 600 ms & PSNR$_\mathrm{f}$ & kbps \\
+Escenario & 20 ms & 200 ms & 600 ms & PSNR$_\mathrm{fuente}$ (dB) & Tasa (kbps) \\
 \midrule
-UDP & 153.9 & 32.4 & 12.1 & 34.86 & 3279 \\
-UDP + I-header & 76.6 & 9.8 & 5.9 & 35.91 & 3302 \\
+UDP & 153,9 & 32,4 & 12,1 & 34,86 & 3279 \\
+UDP + I-header & 76,6 & 9,8 & 5,9 & 35,91 & 3302 \\
 \addlinespace[2pt]
-SRT & 5.2 & 16.9 & 12.1 & 36.01 & 3321 \\
-SRT + I-header & 15.8 & 8.1 & 5.8 & 36.13 & 3331 \\
-SRT + I-h., aviso & 14.5 & 8.1 & 5.8 & 36.13 & 3331 \\
+SRT & 5,2 & 16,9 & 12,1 & 36,01 & 3321 \\
+SRT + I-header & 15,8 & 8,1 & 5,8 & 36,13 & 3331 \\
+SRT + I-h., aviso & 14,5 & 8,1 & 5,8 & 36,13 & 3331 \\
 \addlinespace[2pt]
-SRT, GoP 30 & 6.9 & 10.5 & 8.4 & 35.99 & 3378 \\
-SRT, $L=250$ ms & 0.0 & 0.0 & 9.9 & 36.37 & 3346 \\
-SRT, $L=500$ ms & 0.0 & 0.0 & 3.2 & 36.37 & 3346 \\
-SRT, $L=1000$ ms & 0.0 & 0.0 & 0.0 & 36.37 & 3346 \\
+SRT, GoP 30 & 6,9 & 10,5 & 8,4 & 35,99 & 3378 \\
+SRT, $L=250$ ms & 0,0 & 0,0 & 9,9 & 36,37 & 3346 \\
+SRT, $L=500$ ms & 0,0 & 0,0 & 3,2 & 36,37 & 3346 \\
+SRT, $L=1000$ ms & 0,0 & 0,0 & 0,0 & 36,37 & 3346 \\
 \bottomrule
 \end{tabular}
 \end{table}

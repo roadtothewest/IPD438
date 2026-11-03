@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 
 R = Path(sys.argv[1] if len(sys.argv) > 1 else "results")
 OUT = Path(sys.argv[2] if len(sys.argv) > 2 else "../informe")
@@ -22,20 +23,21 @@ def load(tag):
 
 data = {tag: load(tag) for tag, _ in REG}
 mean = lambda tag, sc, k: float(np.mean([r[k] for r in data[tag][sc]]))
+coma = lambda x, nd: f"{x:.{nd}f}".replace(".", ",")  # decimal con coma
 
 # Tabla
 order = [("udp", "UDP"), ("udp+ih", "UDP + I-header"), ("srt", "SRT"), ("srt+ih", "SRT + I-header"), ("srt+ih_rep", "SRT + I-h., aviso"),
          ("srt_gop30", "SRT, GoP 30"), ("srt@250", "SRT, $L=250$ ms"), ("srt@500", "SRT, $L=500$ ms"),
          ("srt@1000", "SRT, $L=1000$ ms")]
 lines = [r"\begin{table}[t]", r"\centering",
-         r"\caption{Frames dañados en 10~s (promedio de 8 semillas), con 2~\% de pérdida (corte medio de 20~ms) y 4~\% de pérdida (cortes de 200 y 600~ms). GoP~90 y $L=120$~ms salvo que se indique. Las dos últimas columnas son del régimen de 200~ms: PSNR promedio contra la fuente (sin pérdida: 36,37~dB con GoP~90) y tasa hacia el espectador con retransmisiones.}",
-         r"\label{tab:res}", r"\footnotesize", r"\begin{tabular}{@{}lrrrrr@{}}", r"\toprule",
+         r"\caption{Frames dañados en 10~s (promedio de 8 semillas), con 2~\% de pérdida (corte medio de 20~ms) y 4~\% de pérdida (cortes de 200 y 600~ms). GoP~90 y $L=120$~ms salvo que se indique. Las dos últimas columnas son del régimen de 200~ms: PSNR promedio contra la fuente (sin pérdida: 36,37~dB con GoP~90) y tasa hacia el espectador, incluidas las retransmisiones.}",
+         r"\label{tab:res}", r"\footnotesize", r"\setlength{\tabcolsep}{3pt}", r"\begin{tabular}{@{}lrrrrr@{}}", r"\toprule",
          r" & \multicolumn{3}{c}{Frames dañados, $D=$} & \multicolumn{2}{c}{$D=200$ ms} \\ \cmidrule(lr){2-4}\cmidrule(l){5-6}",
-         r"Escenario & 20 ms & 200 ms & 600 ms & PSNR$_\mathrm{f}$ & kbps \\", r"\midrule"]
+         r"Escenario & 20 ms & 200 ms & 600 ms & PSNR$_\mathrm{fuente}$ (dB) & Tasa (kbps) \\", r"\midrule"]
 for sc, label in order:
-    vals = [f"{mean(t, sc, 'danados'):.1f}" for t, _ in REG]
+    vals = [coma(mean(t, sc, 'danados'), 1) for t, _ in REG]
     kb = f"{mean('r2_4pc_200ms', sc, 'kbps'):.0f}"
-    pf = f"{mean('r2_4pc_200ms', sc, 'psnr_src'):.2f}"
+    pf = coma(mean('r2_4pc_200ms', sc, 'psnr_src'), 2)
     lines.append(f"{label} & " + " & ".join(vals) + f" & {pf} & {kb} \\\\")
     if sc in ("udp+ih", "srt+ih_rep"):
         lines.append(r"\addlinespace[2pt]")
@@ -57,11 +59,12 @@ for sc, lab, st in [("srt", "SRT", "-"), ("srt_gop30", "SRT, GoP 30", ":"), ("sr
     y = np.minimum(cur[f"{sc}|{seed}"][a:b], 60)
     ax.plot(t, y, st, label=lab, lw=1.4 if sc == "srt+ih" else 1.0)
 ax.axhline(35, color="0.5", lw=0.5)
-ax.text(t[0] + 0.05, 36, "umbral 35 dB", color="0.4", fontsize=7)
+ax.text(t[-1], 36, "umbral 35 dB", color="0.4", fontsize=7, ha="right")
 ax.set_xlabel("tiempo (s)")
 ax.set_ylabel(r"PSNR$_{\mathrm{ref}}$ (dB, tope 60)")
-ax.set_ylim(15, 62)
-ax.legend(loc="lower right", fontsize=7, frameon=False, ncol=2)
+ax.set_ylim(0, 62)
+ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: coma(x, 1)))
+ax.legend(loc="lower right", fontsize=7, frameon=False, ncol=2, borderaxespad=0.2)
 fig.tight_layout(pad=0.3)
 fig.savefig(OUT / "fig_evento.pdf")
 (OUT / "evento.txt").write_text(f"{tag} semilla {seed}, frames {a}-{b}\n")
