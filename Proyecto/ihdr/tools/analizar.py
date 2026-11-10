@@ -128,7 +128,7 @@ def figura(gop):
         ymax = max(ymax, max(a + e for a, e in ms))
     ax.set_xticks(range(3)); ax.set_xticklabels([d for _, d in REG])
     ax.set_xlabel("duración media del corte $D$"); ax.set_ylabel("s con artefacto visible (de 10 s)")
-    ax.set_ylim(0, ymax * 1.35); ax.set_title("(a) Calidad", fontsize=8)
+    ax.set_ylim(0, ymax * 1.35); ax.set_title("(a) Tiempo con artefactos", fontsize=8)
     # (b) segundos con artefacto, solo en las semillas donde el caso sin I-header tuvo artefacto
     ax = axs[1]
     for i, (c, _) in enumerate(CASES):
@@ -156,7 +156,7 @@ def figura(gop):
         for xi, v in zip(x, [esp, sub]):
             lab(ax, xi, v, coma(v, 2), 0.1)
     ax.set_xticks(range(2)); ax.set_xticklabels(["espectador", "subida"]); ax.set_ylabel("Mbps")
-    ax.set_ylim(0, ax.get_ylim()[1] * 1.3); ax.set_title("(d) Ancho de banda", fontsize=8)
+    ax.set_ylim(0, ax.get_ylim()[1] * 1.3); ax.set_title("(d) Tasa de bits", fontsize=8)
     h, l = axs[0].get_legend_handles_labels()
     fig.legend(h, l, loc="upper center", ncol=4, frameon=False, fontsize=8, bbox_to_anchor=(0.5, 1.01))
     fig.tight_layout(pad=0.4, w_pad=0.8, rect=(0, 0, 1, 0.9))
