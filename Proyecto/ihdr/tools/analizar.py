@@ -108,9 +108,9 @@ def por_evento(gop, tag, caso):
     return [mc[s]["vis"] / FPS for s in seeds], seeds
 
 def figura(gop):
-    plt.rcParams.update({"font.size": 8, "font.family": "serif", "axes.linewidth": 0.6, "figure.dpi": 200,
+    plt.rcParams.update({"font.size": 8, "font.family": "Liberation Serif", "pdf.fonttype": 42,  # Times New Roman (métrica), vectorial "axes.linewidth": 0.6, "figure.dpi": 200,
                          "axes.spines.top": False, "axes.spines.right": False,
-                         "mathtext.fontset": "custom", "mathtext.rm": "serif", "mathtext.it": "serif:italic", "mathtext.cal": "serif"})
+                         "mathtext.fontset": "custom", "mathtext.rm": "Liberation Serif", "mathtext.it": "Liberation Serif:italic", "mathtext.cal": "Liberation Serif"})
     fig, axs = plt.subplots(1, 4, figsize=(7.16, 2.0), gridspec_kw={"width_ratios": [1.45, 1.0, 0.75, 1.0]})
     w, FS = 0.2, 7
     off = (np.arange(4) - 1.5) * w
