@@ -4,6 +4,8 @@
 // simulador de eventos discretos. Solo para el PC (usa contenedores estándar).
 #pragma once
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <functional>
 #include <queue>
@@ -217,14 +219,20 @@ class SrtLink {
   void rx_ack(uint32_t ack, Time g) {
     for (; acked_ < ack && acked_ < snd_.size(); ++acked_) {
       snd_[acked_].in_buf = false;
-      // g: marca de tiempo del ACK (receptor). Un ACK generado en/después del plazo TSBPD de un paquete
-      // que el edge vio en un NAK implica descarte (ACK falso), salvo que su última retransmisión
-      // llegara a tiempo y el ACK sea el tick siguiente a esa llegada.
+      // Regla (2) del informe: un paquete que el edge vio en un NAK se descartó si el ACK que lo cubre
+      // se generó después de su plazo y después de cuando se habría confirmado su última retransmisión:
+      //   g > max(tau_s, r_s + d + T_ACK)   (sin retransmisión, solo cuenta tau_s).
+      // g es la marca de tiempo del ACK. Supone que no se envían retransmisiones que llegarían tarde.
       const Snd& x = snd_[acked_];
-      if (!on_ack_skip || !x.naked || g + c_.detect_margin < deadline(acked_)) continue;
-      const bool explained = x.last_retx >= 0 && x.last_retx + c_.owd <= deadline(acked_) &&
-                             g <= x.last_retx + c_.owd + c_.ack_period + c_.detect_margin;
-      if (!explained) on_ack_skip(acked_, x.pid);
+      if (!on_ack_skip || !x.naked) continue;
+      Time umbral = deadline(acked_);
+      if (x.last_retx >= 0) umbral = std::max(umbral, x.last_retx + c_.owd + c_.ack_period);
+      if (g > umbral + c_.detect_margin) {
+        if (std::getenv("IHDR_DEBUG"))
+          std::fprintf(stderr, "flag seq=%u plazo=%lld g=%lld retx=%lld recibido=%d tx=%d\n", acked_, (long long)deadline(acked_),
+                       (long long)g, (long long)x.last_retx, int(acked_ < rcv_.size() && rcv_[acked_].present), x.tx);
+        on_ack_skip(acked_, x.pid);
+      }
     }
   }
 

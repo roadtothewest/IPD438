@@ -195,7 +195,7 @@ int main(int argc, char** argv) {
   // Candidatos de I-header: --b acepta varios streams separados por coma (p. ej. a distintos QP).
   // En cada AU se usa el intra cuyo QP es el más cercano al del P que reemplaza, como haría el
   // codificador si codifica el I-header con el QP del P (menos deriva).
-  struct Cand { std::vector<Au> aus; PpsInfo pps; };
+  struct Cand { std::vector<Au> aus; PpsInfo pps; SpsInfo sps; };
   std::vector<Cand> cands;
   if (use_ih) {
     size_t from = 0;
@@ -209,9 +209,17 @@ int main(int argc, char** argv) {
       c.aus = split_aus(rb);
       NalIter ib(rb.data(), rb.size());
       Nal n;
-      while (ib.next(n) && !c.pps.ok)
-        if (n.type == kNalPps) c.pps = parse_pps(&rb[n.off], n.len);
+      while (ib.next(n) && !(c.pps.ok && c.sps.ok)) {
+        if (n.type == kNalPps && !c.pps.ok) c.pps = parse_pps(&rb[n.off], n.len);
+        if (n.type == kNalSps && !c.sps.ok) c.sps = parse_sps(&rb[n.off], n.len);
+      }
       if (!pps_compatible(c.pps, pr.pps)) { std::fprintf(stderr, "PPS de %s incompatible con el de A\n", path.c_str()); return 1; }
+      // La reescritura usa el SPS de A para leer y escribir el encabezado: deben coincidir.
+      if (c.sps.log2_max_frame_num != pr.sps.log2_max_frame_num || c.sps.poc_type != pr.sps.poc_type ||
+          c.sps.log2_max_poc_lsb != pr.sps.log2_max_poc_lsb || c.sps.frame_mbs_only != pr.sps.frame_mbs_only) {
+        std::fprintf(stderr, "SPS de %s distinto del de A (codificar con el mismo keyint)\n", path.c_str());
+        return 1;
+      }
       if (c.aus.size() < N) { std::fprintf(stderr, "%s tiene menos frames que A\n", path.c_str()); return 1; }
       cands.push_back(std::move(c));
     }
@@ -282,7 +290,8 @@ int main(int argc, char** argv) {
     };
   }
 
-  size_t n_sent_ih = 0;
+  size_t n_sent_ih = 0, au_max_ih = 0, p_count = 0;
+  uint64_t p_bytes = 0;
   for (size_t k = 0; k < N; ++k) {
     q.at(Time(k) * frame_us, [&, k] {
       const Bytes enc = build_encoder_au(A[k], ih[k], ih_pps[k], pr);
@@ -293,6 +302,8 @@ int main(int argc, char** argv) {
       if (use_ih && ih[k] && need) { use = true; need = false; ++n_sent_ih; }
       sent_ih[k] = use;
       sent_es[k] = edge_variant(enc, use);
+      if (use) au_max_ih = std::max(au_max_ih, sent_es[k].size());
+      if (A[k].kind == Kind::P) { p_bytes += A[k].es.size(); ++p_count; }
       got[k].assign(sent_es[k].size(), 0);
       // un AU -> paquetes TS -> grupos de 7 -> paquetes SRT (el último, parcial)
       std::vector<TsPkt> all;
@@ -352,9 +363,10 @@ int main(int argc, char** argv) {
               (unsigned long long)s.recovered, (unsigned long long)s.skipped, (unsigned long long)s.late_discard,
               (unsigned long long)s.retx_suppressed);
   std::printf("au: perdidos=%zu parciales=%zu nal_cortados=%zu\n", au_lost, au_partial, nal_cut);
-  std::printf("kbps: edge->viewer=%.0f (retx %.0f)  encoder->edge=%.0f (sin ihdr %.0f)\n",
+  std::printf("kbps: edge->viewer=%.0f retx_kbps=%.0f encoder->edge=%.0f encoder->edge_sin_ih=%.0f\n",
               double(s.bytes_first + s.bytes_retx) * 8 / secs / 1000, double(s.bytes_retx) * 8 / secs / 1000,
               double(enc_bytes) * 8 / secs / 1000, double(enc_bytes_noih) * 8 / secs / 1000);
+  std::printf("pico: au_ih_max=%zu p_medio=%.0f\n", au_max_ih, p_count ? double(p_bytes) / double(p_count) : 0.0);
   if (g.mode == "ack")
     std::printf("deteccion_ack: marcados=%zu verdaderos=%zu descartes_reales=%zu\n", detected, detect_tp, skipped_true);
   return 0;
