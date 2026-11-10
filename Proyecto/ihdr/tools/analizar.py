@@ -23,7 +23,8 @@ R = Path(sys.argv[1] if len(sys.argv) > 1 else "results/final")
 OUT = Path(sys.argv[2] if len(sys.argv) > 2 else "../informe")
 FPS, N = 30, 300
 REG = [("r20", "20 ms"), ("r200", "200 ms"), ("r600", "600 ms")]
-CASES = [("udp", "UDP"), ("udp+ih", "UDP + I-header"), ("srt", "SRT"), ("srt+ih", "SRT + I-header")]
+IH = r"$\mathit{I}$-$\mathit{header}$"  # palabra en inglés: en cursiva, como en el informe
+CASES = [("udp", "UDP"), ("udp+ih", "UDP + " + IH), ("srt", "SRT"), ("srt+ih", "SRT + " + IH)]
 OWD, UDP_BUF, L_SRT = 15, 20, 120
 RETARDO = {"udp": OWD + UDP_BUF, "udp+ih": OWD + UDP_BUF, "srt": OWD + L_SRT, "srt+ih": OWD + L_SRT}
 COL = {"udp": "#f2b38a", "udp+ih": "#c4510f", "srt": "#9cc3e4", "srt+ih": "#1f5f99"}
@@ -108,7 +109,8 @@ def por_evento(gop, tag, caso):
 
 def figura(gop):
     plt.rcParams.update({"font.size": 8, "font.family": "serif", "axes.linewidth": 0.6, "figure.dpi": 200,
-                         "axes.spines.top": False, "axes.spines.right": False})
+                         "axes.spines.top": False, "axes.spines.right": False,
+                         "mathtext.fontset": "custom", "mathtext.rm": "serif", "mathtext.it": "serif:italic", "mathtext.cal": "serif"})
     fig, axs = plt.subplots(1, 4, figsize=(7.16, 2.0), gridspec_kw={"width_ratios": [1.45, 1.0, 0.75, 1.0]})
     w, FS = 0.2, 7
     off = (np.arange(4) - 1.5) * w
