@@ -25,10 +25,10 @@
 
 % Estilo de secciones IEEE
 \renewcommand{\thesection}{\Roman{section}}
-\renewcommand{\thesubsection}{\Alph{subsection}}
+\renewcommand{\thesubsection}{\thesection-\Alph{subsection}}  % en las referencias: V-A
 \titleformat{\section}{\normalfont\scshape\centering}{\thesection.}{0.5em}{}
 \titlespacing*{\section}{0pt}{1.2ex plus .3ex}{0.8ex}
-\titleformat{\subsection}{\normalfont\itshape}{\thesubsection.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\itshape}{\Alph{subsection}.}{0.5em}{}
 \titlespacing*{\subsection}{0pt}{0.9ex plus .2ex}{0.5ex}
 \renewcommand{\figurename}{Fig.}
 \renewcommand{\tablename}{Tabla}
@@ -65,7 +65,7 @@
 
 En video en vivo, el codificador intercala cuadros intra (I), que se decodifican solos, y cuadros predichos (P), que solo describen lo que cambió respecto del anterior. Un GoP largo ahorra bits, pero si se pierde un paquete, el error se copia de P en P hasta el próximo intra y el espectador ve \emph{macroblocking}. Sobre TCP (\emph{Transmission Control Protocol}) la pérdida se convierte en pausas; este trabajo trata el transporte sobre UDP, que se usa cuando importa la latencia.
 
-SRT~\cite{srt} retransmite lo perdido, pero entrega cada paquete con una latencia fija $L$. Si un corte de la red dura más que $L$, el paquete se descarta y el \emph{macroblocking} vuelve. Las salidas conocidas le cobran a todos los espectadores: subir $L$ retrasa a todos, acortar el GoP sube la tasa de todos y pedirle un intra al codificador con un PLI (\emph{Picture Loss Indication}) se lo envía a todos.
+SRT~\cite{srt} retransmite lo perdido, pero entrega cada paquete con una latencia fija $L$. Si un corte de la red dura más que $L$, el paquete se descarta y el \emph{macroblocking} vuelve. Las salidas conocidas les cobran a todos los espectadores: subir $L$ retrasa a todos, acortar el GoP sube la tasa de todos y pedirle un intra al codificador con un PLI (\emph{Picture Loss Indication}) se lo envía a todos.
 
 AGiLE~\cite{agile} envía al edge, cada cierto número de P, un I-header: el mismo P codificado además como intra, dentro de una SEI (\emph{Supplemental Enhancement Information}). Lo usa para que quien entra al canal no espere el próximo intra. Para el resto, ese I-header ya está en el edge y se descarta.
 
@@ -206,7 +206,7 @@ El núcleo (C++17, sin memoria dinámica ni dependencias del sistema operativo) 
 \begin{equation}
 \mathrm{SSIM}(x,y)=\frac{(2\mu_x\mu_y+C_1)(2\sigma_{xy}+C_2)}{(\mu_x^2+\mu_y^2+C_1)(\sigma_x^2+\sigma_y^2+C_2)},
 \end{equation}
-donde $\mu$, $\sigma^2$ y $\sigma_{xy}$ son las medias, varianzas y covarianza locales, y $C_1$, $C_2$ constantes que evitan dividir por cero. El SSIM del cuadro es el promedio de las ventanas (1 si las imágenes son iguales). Lo implementamos como lo describen los autores, con la imagen promediada en bloques de $3\times3$, y no VMAF, porque el cálculo de SSIM es explícito y se puede verificar. Para cada cuadro $k$,
+donde $\mu$, $\sigma^2$ y $\sigma_{xy}$ son las medias, varianzas y covarianza locales, y $C_1$, $C_2$ constantes que evitan dividir por cero. El SSIM del cuadro es el promedio de las ventanas (1 si las imágenes son iguales). Lo implementamos como lo describen los autores, con la imagen promediada en bloques de $3\times3$. Preferimos SSIM a VMAF porque su cálculo es explícito y se puede verificar. Para cada cuadro $k$,
 \begin{equation}
 \Delta\mathrm{SSIM}_k=\mathrm{SSIM}(F_k,S_k)-\mathrm{SSIM}(F_k,R_k),
 \label{eq:dssim}
@@ -217,16 +217,14 @@ donde $F_k$ es la fuente, $S_k$ el cuadro decodificado sin pérdida y $R_k$ el r
 \label{sec:resultados}
 
 
-\textbf{Configuración.} Los primeros 300 cuadros (10~s) de la secuencia pública \emph{aspen} de Xiph.org~\cite{xiph}, escalados a $1280\times720$ y tratados como 30~fps, codificados con libx264 en perfil Baseline a 3~Mbps, con 45 slices por cuadro y GoP de 90 o 30 cuadros. Hay un I-header cada 5 P, con el QP del P que reemplaza. El retardo de ida es de 15~ms y el edge envía a 6~Mbps como máximo. SRT usa $L=120$~ms, su valor por defecto, o 180~ms, el que recomienda Haivision para 4~\% de pérdida~\cite{haivision}; sin SRT, el espectador tiene un búfer de 20~ms. Elegimos cortes a ambos lados de~\eqref{eq:cond}: de 20~ms (2~\% del tiempo), que caben en $L$, y de 200 y 600~ms (4~\%), que no caben. No afirmamos con qué frecuencia ocurren estos cortes en una red real. Cada caso se corre con las mismas 30 semillas. Con UDP + I-header, el espectador avisa cada descarte; con SRT + I-header, el edge usa la regla~\eqref{eq:regla}.
-
-\textbf{Reproducibilidad.} El codificador y el decodificador corren con un hilo, así que los resultados son deterministas. El script \texttt{tools/reproducir.sh} del repositorio~\cite{repo} descarga la fuente, codifica, simula y genera las figuras y un resumen numérico. Un manifiesto guarda las versiones de las herramientas y el SHA-256 de cada archivo de entrada.
+\textbf{Configuración.} Los primeros 300 cuadros (10~s) de la secuencia pública \emph{aspen} de Xiph.org~\cite{xiph}, escalados a $1280\times720$ y tratados como 30~fps, codificados con libx264 en perfil Baseline a 3~Mbps, con 45 slices por cuadro y GoP de 90 o 30 cuadros. Hay un I-header cada 5 P, con el QP del P que reemplaza. El retardo de ida es de 15~ms y el edge envía a 6~Mbps como máximo. SRT usa $L=120$~ms, su valor por defecto, o 180~ms, el que recomienda Haivision para 4~\% de pérdida~\cite{haivision}; sin SRT, el espectador tiene un búfer de 20~ms. Elegimos cortes a ambos lados de~\eqref{eq:cond}: de 20~ms (2~\% del tiempo), que caben en $L$, y de 200 y 600~ms (4~\%), que no caben. No afirmamos con qué frecuencia ocurren estos cortes en una red real. Cada caso se corre con las mismas 30 semillas. Con UDP + I-header, el espectador avisa cada descarte; con SRT + I-header, el edge usa la regla~\eqref{eq:regla}. El codificador y el decodificador corren con un hilo, así que cada corrida es determinista.
 
 \subsection{Calidad, latencia y ancho de banda}
-Las Figs.~\ref{fig:res90} y~\ref{fig:res30} comparan los cuatro casos. Sin retransmisión, el I-header reduce el tiempo con artefacto visible con los tres tipos de corte; con GoP~90, de 3,70 a 1,41~s con cortes de 20~ms y de 1,50 a 0,61~s con cortes de 200~ms. Con cortes de 20~ms, SRT recupera casi todo (0,19~s) y el I-header no ayuda: el tiempo sobre el umbral sube a 0,27~s, porque cambia artefactos breves por deriva apenas sobre 0,05. La pérdida acumulada de SSIM es la misma (0,041 y 0,040), y con $\theta=0{,}1$ el tiempo baja de 0,12 a 0,08~s.
+Las Figs.~\ref{fig:res90} y~\ref{fig:res30} comparan los cuatro casos. Sin retransmisión, el I-header reduce el tiempo con artefacto visible con los tres tipos de corte (Figs.~\ref{fig:res90}a y~\ref{fig:res30}a); con GoP~90, de 3,70 a 1,41~s con cortes de 20~ms y de 1,50 a 0,61~s con cortes de 200~ms. Con cortes de 20~ms, SRT recupera casi todo (0,19~s) y el I-header no ayuda: el tiempo sobre el umbral sube a 0,27~s, porque cambia artefactos breves por deriva apenas sobre 0,05. La pérdida acumulada de SSIM es la misma (0,041 y 0,040), y con $\theta=0{,}1$ el tiempo baja de 0,12 a 0,08~s.
 
-Con cortes de 200 y 600~ms, SRT no recupera el corte en 19 y 12 de las 30 semillas. En esas semillas, con GoP~90, el I-header acorta el artefacto de 1,55 a 1,01~s y de 1,55 a 1,03~s. Comparando semilla a semilla con cortes de 200~ms, mejora en 13, empeora en 4 y queda igual en 13. Con GoP~30 la ganancia es menor (de 1,07 a 0,91~s y de 1,16 a 1,00~s), porque el intra llega antes de todos modos. Con GoP~90, la ventaja se mantiene con $\theta=0{,}02$ y $0{,}1$; con GoP~30 y $\theta=0{,}02$ desaparece, porque la deriva supera ese umbral. Con cortes largos, UDP + I-header queda cerca de SRT + I-header con 100~ms menos de retardo, pero con cortes cortos es mucho peor.
+Con cortes de 200 y 600~ms, SRT no recupera el corte en 19 y 12 de las 30 semillas. En esas semillas, con GoP~90, el I-header acorta (Fig.~\ref{fig:res90}b) el artefacto de 1,55 a 1,01~s y de 1,55 a 1,03~s. Comparando semilla a semilla con cortes de 200~ms, mejora en 13, empeora en 4 y queda igual en 13. Con GoP~30 la ganancia es menor (de 1,07 a 0,91~s y de 1,16 a 1,00~s), porque el intra llega antes de todos modos. Con GoP~90, la ventaja se mantiene con $\theta=0{,}02$ y $0{,}1$; con GoP~30 y $\theta=0{,}02$ desaparece, porque la deriva supera ese umbral. Con cortes largos, UDP + I-header queda cerca de SRT + I-header con 100~ms menos de retardo, pero con cortes cortos es mucho peor.
 
-El I-header no agrega retardo. La alternativa es subir $L$ para todos (Tabla~\ref{tab:L}). Para igualar al I-header con $L=120$~ms, SRT necesita entre 180 y 250~ms con cortes de 200~ms, y 500~ms con cortes de 600~ms. Con la $L$ recomendada de 180~ms, el I-header sigue ayudando. La tasa hacia el espectador crece 0,7~\% frente a SRT, porque el I-header solo baja cuando hay pérdida.
+El I-header no agrega retardo (Fig.~\ref{fig:res90}c). La alternativa es subir $L$ para todos (Tabla~\ref{tab:L}). Para igualar al I-header con $L=120$~ms, SRT necesita entre 180 y 250~ms con cortes de 200~ms, y 500~ms con cortes de 600~ms. Con la $L$ recomendada de 180~ms, el I-header sigue ayudando. La tasa hacia el espectador crece 0,7~\% frente a SRT (Fig.~\ref{fig:res90}d), porque el I-header solo baja cuando hay pérdida.
 
 \begin{table}[t]
 \centering
@@ -281,7 +279,7 @@ Estos resultados tienen cuatro límites. Primero, usan un solo clip de 10~s y un
 \label{sec:conclusiones}
 SRT no elimina el \emph{macroblocking}: quedan los cortes más largos que $L-\mathrm{RTT}-d$. En esos cortes, el I-header que ya está en el edge acortó los artefactos visibles en un tercio con GoP~90 y en un 15~\% con GoP~30, sin agregar latencia y con 0,7~\% más de tasa hacia el espectador. Para lograr lo mismo subiendo $L$, con cortes de 600~ms se necesitan 500~ms. El edge sabe a quién enviarlo sin cambiar SRT, por la marca de tiempo de los ACK. El costo está en la subida (+57 a +67~\%), en un cuadro hasta 9 veces más grande al entregarlo y en una deriva leve. Con cortes cortos, SRT basta y el I-header no mejora; la propuesta sirve con GoP largos y cortes largos.
 
-Como trabajo futuro quedan:
+Este avance deja hechos el núcleo, el emulador y la comparación en simulación. Queda pendiente:
 (i) varios clips y trazas de pérdida reales;
 (ii) una política del edge que no envíe el I-header con cortes cortos, con QP alto o con el intra cerca;
 (iii) una prueba con observadores;
@@ -301,7 +299,6 @@ Como trabajo futuro quedan:
 \bibitem{haivision} Haivision, ``SRT latency,'' en \emph{SRT Protocol Documentation}, v1.5.3. [En línea]. Disponible: \url{https://doc.haivision.com/SRT/1.5.3/Haivision/latency}
 \bibitem{ssim} Z.~Wang, A.~C.~Bovik, H.~R.~Sheikh y E.~P.~Simoncelli, ``Image quality assessment: From error visibility to structural similarity,'' \emph{IEEE Trans. Image Processing}, vol.~13, no.~4, pp.~600--612, abr. 2004, doi: 10.1109/TIP.2003.819861.
 \bibitem{xiph} Xiph.org, ``Xiph.org Video Test Media [derf's collection].'' [En línea]. Disponible: \url{https://media.xiph.org/video/derf/}
-\bibitem{repo} V.~Andrade, ``Emulador I-header/SRT y scripts de este informe,'' repositorio Git, 2026. [En línea]. Disponible: \url{https://github.com/roadtothewest/IPD438}
 \end{thebibliography}
 
 \end{document}

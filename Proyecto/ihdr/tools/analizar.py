@@ -110,7 +110,7 @@ def figura(gop):
     plt.rcParams.update({"font.size": 8, "font.family": "serif", "axes.linewidth": 0.6, "figure.dpi": 200,
                          "axes.spines.top": False, "axes.spines.right": False})
     fig, axs = plt.subplots(1, 4, figsize=(7.16, 2.0), gridspec_kw={"width_ratios": [1.45, 1.0, 0.75, 1.0]})
-    w, FS = 0.2, 6
+    w, FS = 0.2, 7
     off = (np.arange(4) - 1.5) * w
     lab = lambda ax, x, v, t, dy, **k: ax.text(x, v + dy, t, ha="center", va="bottom", fontsize=FS, rotation=90, **k)
     # (a) segundos con artefacto visible en 10 s
@@ -156,7 +156,7 @@ def figura(gop):
     ax.set_xticks(range(2)); ax.set_xticklabels(["espectador", "subida"]); ax.set_ylabel("Mbps")
     ax.set_ylim(0, ax.get_ylim()[1] * 1.3); ax.set_title("(d) Ancho de banda", fontsize=8)
     h, l = axs[0].get_legend_handles_labels()
-    fig.legend(h, l, loc="upper center", ncol=4, frameon=False, fontsize=7, bbox_to_anchor=(0.5, 1.01))
+    fig.legend(h, l, loc="upper center", ncol=4, frameon=False, fontsize=8, bbox_to_anchor=(0.5, 1.01))
     fig.tight_layout(pad=0.4, w_pad=0.8, rect=(0, 0, 1, 0.9))
     fig.savefig(OUT / f"fig_resultados_gop{gop}.pdf")
     plt.close(fig)
