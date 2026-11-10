@@ -7,10 +7,10 @@ Métrica principal (lo que ve el espectador):
   dSSIM_k = SSIM(fuente, sin pérdida)_k - SSIM(fuente, recibido)_k
   Es cuánto peor se ve el frame k que lo que el espectador habría visto sin pérdida, ambos medidos contra
   la fuente cruda. Una deriva del I-header que se ve igual de bien que el P original da dSSIM ~ 0; el
-  macroblocking da dSSIM grande. Un frame tiene "artefacto visible" si dSSIM_k > THETA.
-  THETA se fija con la deriva: es el percentil 99 de dSSIM en los frames que siguen a un I-header forzado
-  sin pérdida (ver resumen.txt). Así, la deriva del propio I-header casi nunca cuenta como artefacto.
-  Para no depender de THETA, también se informa la pérdida media de SSIM y la sensibilidad a THETA.
+  macroblocking da dSSIM grande. Un frame tiene "artefacto visible" si dSSIM_k > THETA = 0,05.
+  THETA es fijo y no se ajusta al método: con GoP 90, el 90 % de los frames con deriva queda bajo 0,017 y
+  la mediana de los frames dañados sin I-header supera 0,12. Para no depender de THETA se informan la
+  sensibilidad (0,02 y 0,1) y una métrica sin umbral: el SSIM perdido acumulado, suma de dSSIM / fps.
 """
 import csv, sys
 from pathlib import Path
@@ -68,13 +68,15 @@ for gop in (90, 30):
         vals.extend(d.tolist()); minpsnr.append(float(m[0][seg].min())); maxd.append(float(d.max()))
     vals = np.array(vals)
     theta_por_gop[gop] = float(np.percentile(vals, 99))
-    deriva_res[gop] = dict(n=len(curv), p99=theta_por_gop[gop], media=float(vals.mean()),
+    deriva_res[gop] = dict(n=len(curv), p99=theta_por_gop[gop], media=float(vals.mean()), p90=float(np.percentile(vals, 90)),
+                           p50=float(np.median(vals)), n_sobre=int(np.sum(np.array(maxd) > 0.05)),
                            psnr_min_med=float(np.median(minpsnr)), psnr_min_min=float(np.min(minpsnr)),
                            frac_psnr35=float(np.mean(np.array(minpsnr) < 35)), dmax=float(np.max(maxd)))
-THETA = max(theta_por_gop.values())  # un solo umbral para todo
-say(f"THETA (p99 de dSSIM de la deriva, máximo entre GoP) = {THETA:.4f}")
+THETA = 0.05
+say(f"THETA = {THETA}")
 for gop, r in deriva_res.items():
-    say(f"deriva GoP{gop}: {r['n']} I-headers forzados; dSSIM medio {r['media']:.4f}, p99 {r['p99']:.4f}, max {r['dmax']:.4f}; "
+    say(f"deriva GoP{gop}: {r['n']} I-headers forzados; dSSIM mediana {r['p50']:.4f}, p90 {r['p90']:.4f}, p99 {r['p99']:.4f}, "
+        f"max {r['dmax']:.4f}; {r['n_sobre']} I-headers superan 0,05 en algún frame; "
         f"PSNR_ref mínimo: mediana {r['psnr_min_med']:.1f} dB, peor {r['psnr_min_min']:.1f} dB; "
         f"{100*r['frac_psnr35']:.0f} % bajaría de 35 dB (contaría como daño con el criterio PSNR)")
 
@@ -87,7 +89,8 @@ def metricas(gop, tag, caso, theta=None):
         if c != caso: continue
         d = dssim(gop, m)
         vis = d > theta
-        res[s] = dict(vis=int(vis.sum()), ev=rachas(vis), dmean=float(d.mean()), psnr35=int((m[0] < 35).sum()),
+        res[s] = dict(vis=int(vis.sum()), ev=rachas(vis), dmean=float(d.mean()), acum=float(np.clip(d, 0, None).sum() / FPS),
+                      psnr35=int((m[0] < 35).sum()),
                       kbps=float(info[(c, s)]["kbps_espectador"]), sub=float(info[(c, s)]["kbps_subida"]),
                       sub0=float(info[(c, s)]["kbps_subida_sin_ih"]), info=info[(c, s)])
     return res
@@ -166,7 +169,7 @@ for gop in (90, 30):
             vis = media_se([v["vis"] / FPS for v in m.values()])
             ev, seeds = por_evento(gop, t, c)
             say(f"{t:5s} {c:7s} artefacto {coma(vis[0],2)} ± {coma(vis[1],2)} s; por evento {coma(np.mean(ev) if ev else 0,2)} s "
-                f"(n={len(seeds)}); dSSIM medio {np.mean([v['dmean'] for v in m.values()]):.4f}; "
+                f"(n={len(seeds)}); SSIM perdido acumulado {np.mean([v['acum'] for v in m.values()]):.3f} SSIM·s; "
                 f"PSNR<35: {np.mean([v['psnr35'] for v in m.values()]):.1f} frames; "
                 f"espectador {np.mean([v['kbps'] for v in m.values()]):.0f} kbps; subida {np.mean([v['sub'] for v in m.values()]):.0f} kbps")
         # pareado SRT vs SRT+IH
@@ -186,7 +189,12 @@ for gop in (90, 30):
     marc = sum(int(v["info"]["marcados"] or 0) for v in m.values())
     verd = sum(int(v["info"]["verdaderos"] or 0) for v in m.values())
     real = sum(int(v["info"]["descartes_reales"] or 0) for v in m.values())
-    say(f"detección regla (2): marcados {marc}, verdaderos {verd} (precisión {verd / max(marc, 1):.3f}), descartes reales {real}")
+    say(f"detección regla (2), por paquete: marcados {marc}, verdaderos {verd} (precisión {verd / max(marc, 1):.3f}), descartes reales {real}")
+    # Por corrida (evento): ¿se envió un I-header sin descarte real? ¿hubo descarte sin I-header?
+    fp = sum(1 for v in m.values() if int(v["info"]["ih_enviados"] or 0) > 0 and int(v["info"]["descartes_reales"] or 0) == 0)
+    fn = sum(1 for v in m.values() if int(v["info"]["ih_enviados"] or 0) == 0 and int(v["info"]["descartes_reales"] or 0) > 0)
+    con = sum(1 for v in m.values() if int(v["info"]["descartes_reales"] or 0) > 0)
+    say(f"detección regla (2), por corrida: {len(m)} corridas, {con} con descarte; I-header sin descarte: {fp}; descarte sin I-header: {fn}")
     ih = [(int(v["info"]["au_ih_max"]), float(v["info"]["p_medio"])) for v in m.values() if int(v["info"]["au_ih_max"] or 0) > 0]
     if ih:
         say(f"pico: AU con I-header máx {max(x for x, _ in ih)} B; P medio {ih[0][1]:.0f} B; "
@@ -203,11 +211,11 @@ for t in ("r200", "r600"):
             say(f"{t} SRT L={L}: artefacto {coma(np.mean(v), 2)} s")
 
 # Sensibilidad al umbral (GoP 90, r200): reducción por evento de SRT+IH frente a SRT
-for th in (THETA / 2, THETA, THETA * 2, THETA * 4):
-    a, b = metricas(90, "r200", "srt", th), metricas(90, "r200", "srt+ih", th)
-    s = [k for k, v in a.items() if v["vis"] > 0]
-    if s:
-        ra, rb = np.mean([a[k]["vis"] for k in s]), np.mean([b[k]["vis"] for k in s])
-        say(f"sensibilidad theta={th:.4f}: SRT {ra / FPS:.2f} s -> SRT+IH {rb / FPS:.2f} s por evento (n={len(s)})")
+for gop in (90, 30):
+    for t in ("r20", "r200", "r600"):
+        for th in (0.02, 0.05, 0.1):
+            a, b = metricas(gop, t, "srt", th), metricas(gop, t, "srt+ih", th)
+            ta, tb = np.mean([v["vis"] for v in a.values()]) / FPS, np.mean([v["vis"] for v in b.values()]) / FPS
+            say(f"sensibilidad GoP{gop} {t} theta={th}: SRT {ta:.2f} s -> SRT+IH {tb:.2f} s con artefacto (de 10 s)")
 
 (R / "resumen.txt").write_text("\n".join(lines) + "\n")
