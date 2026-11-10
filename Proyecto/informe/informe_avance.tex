@@ -65,7 +65,7 @@
 
 \section{Introducción}
 
-En video en vivo, el codificador intercala cuadros intra (I), que se decodifican solos, y cuadros predichos (P), que solo describen lo que cambió respecto del anterior. Un GoP largo ahorra bits, pero si se pierde un paquete, el error se copia de P en P hasta el próximo intra y el espectador ve \emph{macroblocking}. Sobre TCP (\emph{Transmission Control Protocol}) la pérdida se convierte en pausas; este trabajo trata el transporte sobre UDP, que se usa cuando importa la latencia.
+En video en vivo, el codificador intercala cuadros intra (I), que se decodifican solos, y cuadros predichos (P), que solo describen lo que cambió respecto del anterior. Un GoP largo ahorra bits, pero si se pierde un paquete, el error se copia de P en P hasta el próximo intra y el espectador ve \emph{macroblocking}. El \emph{macroblocking} también aparece sin pérdidas, por cuantización excesiva: en escenas con mucho movimiento el codificador no tiene bits suficientes y los bloques se notan (\emph{blockiness}). Este trabajo trata solo el causado por pérdidas. Sobre TCP (\emph{Transmission Control Protocol}) la pérdida se convierte en pausas; este trabajo trata el transporte sobre UDP, que se usa cuando importa la latencia.
 
 SRT~\cite{srt} retransmite lo perdido, pero entrega cada paquete con una latencia fija $L$. Si un corte de la red dura más que $L$, el paquete se descarta y el \emph{macroblocking} vuelve. Las salidas conocidas les cobran a todos los espectadores: subir $L$ retrasa a todos, acortar el GoP sube la tasa de bits de todos y pedirle un intra al codificador con un PLI (\emph{Picture Loss Indication}) se lo envía a todos.
 
@@ -213,7 +213,7 @@ donde $\mu$, $\sigma^2$ y $\sigma_{xy}$ son las medias, varianzas y covarianza l
 \Delta\mathrm{SSIM}_k=\mathrm{SSIM}(F_k,S_k)-\mathrm{SSIM}(F_k,R_k),
 \label{eq:dssim}
 \end{equation}
-donde $F_k$ es el cuadro original (la fuente), $S_k$ el cuadro decodificado sin pérdida y $R_k$ el recibido. Al comparar ambos con la fuente, la deriva del \emph{I-header}, que se parece al original, pesa poco, y el \emph{macroblocking} pesa mucho. Un cuadro tiene un artefacto visible si $\Delta\mathrm{SSIM}_k>\theta=0{,}05$. En los cuadros dañados por pérdida, la mediana de $\Delta\mathrm{SSIM}_k$ va de 0,15 a 0,43 según el caso. El umbral es nuestro, así que también informamos $\theta=0{,}02$ y $0{,}1$, y la pérdida acumulada $\sum_k\max(0,\Delta\mathrm{SSIM}_k)/\mathrm{fps}$, que no usa umbral.
+donde $F_k$ es el cuadro original (la fuente), $S_k$ el cuadro decodificado sin pérdida y $R_k$ el recibido. Al comparar ambos con la fuente, la deriva del \emph{I-header}, que se parece al original, pesa poco, y el \emph{macroblocking} pesa mucho. Los bloques por cuantización están también en $S_k$, así que no cuentan. Un cuadro tiene un artefacto visible si $\Delta\mathrm{SSIM}_k>\theta=0{,}05$. En los cuadros dañados por pérdida, la mediana de $\Delta\mathrm{SSIM}_k$ va de 0,15 a 0,43 según el caso. El umbral es nuestro, así que también informamos $\theta=0{,}02$ y $0{,}1$, y la pérdida acumulada $\sum_k\max(0,\Delta\mathrm{SSIM}_k)/\mathrm{fps}$, que no usa umbral.
 
 \section{Resultados}
 \label{sec:resultados}
