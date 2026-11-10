@@ -2,3 +2,4 @@ build/
 media/
 results/pgid
 results/*.log
+results/cuadros/
