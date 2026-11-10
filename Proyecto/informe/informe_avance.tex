@@ -282,10 +282,11 @@ Estos resultados tienen cuatro límites. Primero, usan una sola secuencia de 10~
 SRT no elimina el \emph{macroblocking}: quedan los cortes más largos que $L-\mathrm{RTT}-d$. En esos cortes, el \emph{I-header} que ya está en el \emph{edge} acortó los artefactos visibles en un tercio con GoP~90 y en un 15~\% con GoP~30, sin agregar latencia y con 0,7~\% más de tasa de bits hacia el espectador. Para lograr lo mismo subiendo $L$, con cortes de 600~ms se necesitan 500~ms. El \emph{edge} sabe a quién enviarlo sin cambiar SRT, por la marca de tiempo de los ACK. El costo está en la subida (+57 a +67~\%), en un cuadro hasta 9 veces más grande al entregarlo y en una deriva leve. Con cortes cortos, SRT basta y el \emph{I-header} no mejora; la propuesta sirve con GoP largos y cortes largos.
 
 Este avance deja hechos el emulador en Linux y la comparación de los cuatro casos. Queda pendiente:
-(i) varias secuencias y trazas de pérdida reales;
-(ii) una política del \emph{edge} que no envíe el \emph{I-header} con cortes cortos, con QP alto o con el intra cerca;
-(iii) una prueba con observadores;
-(iv) validar el modelo contra libsrt sobre una red emulada.
+(i) codificar y hacer de \emph{edge} en un microcontrolador STM32N6, que tiene codificador H.264 por \emph{hardware}, y probar con 1, 2, 3, \ldots{} espectadores, cada uno con su propia tasa de pérdida;
+(ii) validar el modelo contra libsrt sobre una red emulada;
+(iii) varias secuencias y trazas de pérdida reales;
+(iv) una política del \emph{edge} que no envíe el \emph{I-header} con cortes cortos, con QP alto o con el intra cerca;
+(v) una prueba con observadores.
 
 \begin{thebibliography}{99}
 \footnotesize
