@@ -1,0 +1,75 @@
+THETA = 0.05
+deriva GoP90: 56 I-headers forzados; dSSIM mediana 0.0056, p90 0.0168, p99 0.0646, max 0.0770; 5 I-headers superan 0,05 en algún frame; PSNR_ref mínimo: mediana 38.1 dB, peor 23.8 dB; 43 % bajaría de 35 dB (contaría como daño con el criterio PSNR)
+deriva GoP30: 50 I-headers forzados; dSSIM mediana 0.0098, p90 0.0512, p99 0.0706, max 0.0778; 6 I-headers superan 0,05 en algún frame; PSNR_ref mínimo: mediana 37.9 dB, peor 23.9 dB; 46 % bajaría de 35 dB (contaría como daño con el criterio PSNR)
+
+=== GoP 90 ===
+r20   udp     artefacto 3,70 ± 0,28 s; en semillas afectadas 3,70 s (n=30); SSIM perdido acumulado 0.698 SSIM·s; PSNR<35: 147.6 frames; espectador 3276 kbps; subida 3062 kbps
+r20   udp+ih  artefacto 1,41 ± 0,11 s; en semillas afectadas 1,41 s (n=30); SSIM perdido acumulado 0.326 SSIM·s; PSNR<35: 73.8 frames; espectador 3469 kbps; subida 5107 kbps
+r20   srt     artefacto 0,19 ± 0,06 s; en semillas afectadas 0,52 s (n=11); SSIM perdido acumulado 0.041 SSIM·s; PSNR<35: 10.5 frames; espectador 3418 kbps; subida 3062 kbps
+r20   srt+ih  artefacto 0,27 ± 0,08 s; en semillas afectadas 0,63 s (n=11); SSIM perdido acumulado 0.040 SSIM·s; PSNR<35: 14.1 frames; espectador 3448 kbps; subida 5107 kbps
+r20   SRT+IH - SRT (frames): media 2.3 ± 2.0; mejora en 3, empeora en 7, igual en 20 de 30
+r200  udp     artefacto 1,50 ± 0,27 s; en semillas afectadas 1,96 s (n=23); SSIM perdido acumulado 0.435 SSIM·s; PSNR<35: 52.0 frames; espectador 3276 kbps; subida 3062 kbps
+r200  udp+ih  artefacto 0,61 ± 0,13 s; en semillas afectadas 0,80 s (n=23); SSIM perdido acumulado 0.207 SSIM·s; PSNR<35: 23.9 frames; espectador 3311 kbps; subida 5107 kbps
+r200  srt     artefacto 0,98 ± 0,22 s; en semillas afectadas 1,55 s (n=19); SSIM perdido acumulado 0.274 SSIM·s; PSNR<35: 34.8 frames; espectador 3329 kbps; subida 3062 kbps
+r200  srt+ih  artefacto 0,64 ± 0,14 s; en semillas afectadas 1,01 s (n=19); SSIM perdido acumulado 0.196 SSIM·s; PSNR<35: 23.7 frames; espectador 3352 kbps; subida 5107 kbps
+r200  SRT+IH - SRT (frames): media -10.4 ± 4.4; mejora en 13, empeora en 4, igual en 13 de 30
+r600  udp     artefacto 0,80 ± 0,21 s; en semillas afectadas 1,85 s (n=13); SSIM perdido acumulado 0.305 SSIM·s; PSNR<35: 24.6 frames; espectador 3276 kbps; subida 3062 kbps
+r600  udp+ih  artefacto 0,44 ± 0,14 s; en semillas afectadas 1,01 s (n=13); SSIM perdido acumulado 0.207 SSIM·s; PSNR<35: 15.0 frames; espectador 3289 kbps; subida 5107 kbps
+r600  srt     artefacto 0,62 ± 0,19 s; en semillas afectadas 1,55 s (n=12); SSIM perdido acumulado 0.248 SSIM·s; PSNR<35: 18.9 frames; espectador 3299 kbps; subida 3062 kbps
+r600  srt+ih  artefacto 0,41 ± 0,14 s; en semillas afectadas 1,03 s (n=12); SSIM perdido acumulado 0.194 SSIM·s; PSNR<35: 14.3 frames; espectador 3310 kbps; subida 5107 kbps
+r600  SRT+IH - SRT (frames): media -6.2 ± 3.0; mejora en 9, empeora en 1, igual en 20 de 30
+r200 srt@180: artefacto 0,62 s
+r200 srt+ih@180: artefacto 0,47 s
+r600 srt@180: artefacto 0,52 s
+r600 srt+ih@180: artefacto 0,39 s
+detección regla (2), por paquete: marcados 4694, verdaderos 4425 (precisión 0.943), descartes reales 5281
+detección regla (2), por corrida: 90 corridas, 46 con descarte; I-header sin descarte: 1; descarte sin I-header: 2
+pico: AU con I-header máx 105167 B; P medio 12008 B; razón 8.8
+
+=== GoP 30 ===
+r20   udp     artefacto 2,05 ± 0,17 s; en semillas afectadas 2,05 s (n=30); SSIM perdido acumulado 0.393 SSIM·s; PSNR<35: 86.4 frames; espectador 3338 kbps; subida 3117 kbps
+r20   udp+ih  artefacto 1,39 ± 0,10 s; en semillas afectadas 1,39 s (n=30); SSIM perdido acumulado 0.265 SSIM·s; PSNR<35: 73.7 frames; espectador 3520 kbps; subida 4886 kbps
+r20   srt     artefacto 0,22 ± 0,07 s; en semillas afectadas 0,61 s (n=11); SSIM perdido acumulado 0.045 SSIM·s; PSNR<35: 9.7 frames; espectador 3484 kbps; subida 3117 kbps
+r20   srt+ih  artefacto 0,33 ± 0,07 s; en semillas afectadas 0,59 s (n=11); SSIM perdido acumulado 0.045 SSIM·s; PSNR<35: 15.8 frames; espectador 3511 kbps; subida 4886 kbps
+r20   SRT+IH - SRT (frames): media 3.1 ± 2.2; mejora en 4, empeora en 9, igual en 17 de 30
+r200  udp     artefacto 0,92 ± 0,15 s; en semillas afectadas 1,20 s (n=23); SSIM perdido acumulado 0.292 SSIM·s; PSNR<35: 28.9 frames; espectador 3338 kbps; subida 3117 kbps
+r200  udp+ih  artefacto 0,62 ± 0,13 s; en semillas afectadas 0,81 s (n=23); SSIM perdido acumulado 0.205 SSIM·s; PSNR<35: 25.4 frames; espectador 3372 kbps; subida 4886 kbps
+r200  srt     artefacto 0,68 ± 0,13 s; en semillas afectadas 1,07 s (n=19); SSIM perdido acumulado 0.213 SSIM·s; PSNR<35: 21.7 frames; espectador 3392 kbps; subida 3117 kbps
+r200  srt+ih  artefacto 0,58 ± 0,13 s; en semillas afectadas 0,91 s (n=19); SSIM perdido acumulado 0.172 SSIM·s; PSNR<35: 21.9 frames; espectador 3414 kbps; subida 4886 kbps
+r200  SRT+IH - SRT (frames): media -3.1 ± 1.7; mejora en 13, empeora en 5, igual en 12 de 30
+r600  udp     artefacto 0,54 ± 0,13 s; en semillas afectadas 1,25 s (n=13); SSIM perdido acumulado 0.237 SSIM·s; PSNR<35: 17.3 frames; espectador 3338 kbps; subida 3117 kbps
+r600  udp+ih  artefacto 0,43 ± 0,13 s; en semillas afectadas 0,98 s (n=13); SSIM perdido acumulado 0.200 SSIM·s; PSNR<35: 15.7 frames; espectador 3351 kbps; subida 4886 kbps
+r600  srt     artefacto 0,46 ± 0,13 s; en semillas afectadas 1,16 s (n=12); SSIM perdido acumulado 0.211 SSIM·s; PSNR<35: 14.0 frames; espectador 3359 kbps; subida 3117 kbps
+r600  srt+ih  artefacto 0,40 ± 0,13 s; en semillas afectadas 1,00 s (n=12); SSIM perdido acumulado 0.187 SSIM·s; PSNR<35: 13.9 frames; espectador 3370 kbps; subida 4886 kbps
+r600  SRT+IH - SRT (frames): media -1.9 ± 1.6; mejora en 8, empeora en 2, igual en 20 de 30
+r200 srt@180: artefacto 0,44 s
+r200 srt+ih@180: artefacto 0,41 s
+r600 srt@180: artefacto 0,44 s
+r600 srt+ih@180: artefacto 0,40 s
+detección regla (2), por paquete: marcados 4803, verdaderos 4491 (precisión 0.935), descartes reales 5346
+detección regla (2), por corrida: 90 corridas, 48 con descarte; I-header sin descarte: 2; descarte sin I-header: 2
+pico: AU con I-header máx 102779 B; P medio 11379 B; razón 9.0
+r200 SRT L=250: artefacto 0,45 s
+r200 SRT L=500: artefacto 0,25 s
+r200 SRT L=1000: artefacto 0,00 s
+r600 SRT L=250: artefacto 0,47 s
+r600 SRT L=500: artefacto 0,40 s
+r600 SRT L=1000: artefacto 0,14 s
+sensibilidad GoP90 r20 theta=0.02: SRT 0.31 s -> SRT+IH 0.36 s con artefacto (de 10 s)
+sensibilidad GoP90 r20 theta=0.05: SRT 0.19 s -> SRT+IH 0.27 s con artefacto (de 10 s)
+sensibilidad GoP90 r20 theta=0.1: SRT 0.12 s -> SRT+IH 0.08 s con artefacto (de 10 s)
+sensibilidad GoP90 r200 theta=0.02: SRT 1.18 s -> SRT+IH 0.74 s con artefacto (de 10 s)
+sensibilidad GoP90 r200 theta=0.05: SRT 0.98 s -> SRT+IH 0.64 s con artefacto (de 10 s)
+sensibilidad GoP90 r200 theta=0.1: SRT 0.75 s -> SRT+IH 0.47 s con artefacto (de 10 s)
+sensibilidad GoP90 r600 theta=0.02: SRT 0.67 s -> SRT+IH 0.46 s con artefacto (de 10 s)
+sensibilidad GoP90 r600 theta=0.05: SRT 0.62 s -> SRT+IH 0.41 s con artefacto (de 10 s)
+sensibilidad GoP90 r600 theta=0.1: SRT 0.57 s -> SRT+IH 0.35 s con artefacto (de 10 s)
+sensibilidad GoP30 r20 theta=0.02: SRT 0.28 s -> SRT+IH 0.47 s con artefacto (de 10 s)
+sensibilidad GoP30 r20 theta=0.05: SRT 0.22 s -> SRT+IH 0.33 s con artefacto (de 10 s)
+sensibilidad GoP30 r20 theta=0.1: SRT 0.15 s -> SRT+IH 0.08 s con artefacto (de 10 s)
+sensibilidad GoP30 r200 theta=0.02: SRT 0.72 s -> SRT+IH 0.71 s con artefacto (de 10 s)
+sensibilidad GoP30 r200 theta=0.05: SRT 0.68 s -> SRT+IH 0.58 s con artefacto (de 10 s)
+sensibilidad GoP30 r200 theta=0.1: SRT 0.54 s -> SRT+IH 0.42 s con artefacto (de 10 s)
+sensibilidad GoP30 r600 theta=0.02: SRT 0.47 s -> SRT+IH 0.46 s con artefacto (de 10 s)
+sensibilidad GoP30 r600 theta=0.05: SRT 0.46 s -> SRT+IH 0.40 s con artefacto (de 10 s)
+sensibilidad GoP30 r600 theta=0.1: SRT 0.44 s -> SRT+IH 0.34 s con artefacto (de 10 s)

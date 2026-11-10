@@ -122,12 +122,12 @@ def figura(gop):
         ax.bar(x, [a for a, _ in ms], w, color=COL[c], label=l)
         ax.errorbar(x, [a for a, _ in ms], yerr=[e for _, e in ms], fmt="none", color="k", lw=0.6, capsize=1.5)
         for xi, (a, e) in zip(x, ms):
-            lab(ax, xi, a + e, coma(a, 2), 0.05)
+            lab(ax, xi, a + e, coma(a, 2), 0.12)
         ymax = max(ymax, max(a + e for a, e in ms))
     ax.set_xticks(range(3)); ax.set_xticklabels([d for _, d in REG])
     ax.set_xlabel("duración media del corte $D$"); ax.set_ylabel("s con artefacto visible (de 10 s)")
     ax.set_ylim(0, ymax * 1.35); ax.set_title("(a) Calidad", fontsize=8)
-    # (b) duración por evento
+    # (b) segundos con artefacto, solo en las semillas donde el caso sin I-header tuvo artefacto
     ax = axs[1]
     for i, (c, _) in enumerate(CASES):
         vals = [np.mean(por_evento(gop, t, c)[0]) if por_evento(gop, t, c)[1] else 0 for t in ("r200", "r600")]
@@ -135,8 +135,8 @@ def figura(gop):
         ax.bar(x, vals, w, color=COL[c])
         for xi, v in zip(x, vals):
             lab(ax, xi, v, coma(v, 2), 0.03)
-    ax.set_xticks(range(2)); ax.set_xticklabels(["200 ms", "600 ms"]); ax.set_xlabel("$D$")
-    ax.set_ylabel("s por evento"); ax.set_ylim(0, None); ax.set_title("(b) Duración", fontsize=8)
+    ax.set_xticks(range(2)); ax.set_xticklabels(["200 ms", "600 ms"]); ax.set_xlabel("duración media del corte $D$")
+    ax.set_ylabel("s con artefacto visible"); ax.set_title("(b) Solo semillas con descarte", fontsize=8)
     ax.set_ylim(0, ax.get_ylim()[1] * 1.3)
     # (c) retardo
     ax = axs[2]
@@ -168,7 +168,7 @@ for gop in (90, 30):
             m = metricas(gop, t, c)
             vis = media_se([v["vis"] / FPS for v in m.values()])
             ev, seeds = por_evento(gop, t, c)
-            say(f"{t:5s} {c:7s} artefacto {coma(vis[0],2)} ± {coma(vis[1],2)} s; por evento {coma(np.mean(ev) if ev else 0,2)} s "
+            say(f"{t:5s} {c:7s} artefacto {coma(vis[0],2)} ± {coma(vis[1],2)} s; en semillas afectadas {coma(np.mean(ev) if ev else 0,2)} s "
                 f"(n={len(seeds)}); SSIM perdido acumulado {np.mean([v['acum'] for v in m.values()]):.3f} SSIM·s; "
                 f"PSNR<35: {np.mean([v['psnr35'] for v in m.values()]):.1f} frames; "
                 f"espectador {np.mean([v['kbps'] for v in m.values()]):.0f} kbps; subida {np.mean([v['sub'] for v in m.values()]):.0f} kbps")

@@ -1,2 +1,4 @@
 build/
 media/
+results/pgid
+results/*.log
